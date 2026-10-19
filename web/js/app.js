@@ -255,6 +255,7 @@
     $("sstSrc").onchange = () => { if (curGeo) loadSst(curGeo); };
     $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
     $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
+    $("sstStep").onchange = (e) => sst.setStep(Number(e.target.value));
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;

@@ -62,10 +62,16 @@
         </select>
       </div>
       <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
-      <label class="row"><input type="checkbox" id="sstContour" checked> 等温線（2℃ごと）</label>
+      <div class="row">
+        <label><input type="checkbox" id="sstContour" checked> 等温線</label>
+        <select id="sstStep">
+          <option value="2">2℃ごと</option>
+          <option value="1">1℃ごと</option>
+        </select>
+      </div>
       <div id="sstLegend" class="legend"></div>
       <div id="sstMeta" class="meta"></div>
-      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
+      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃または1℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
     </section>
 
     <section>

@@ -14,7 +14,6 @@ window.SstLayer = (map) => {
     }
     return STOPS[STOPS.length - 1][1];
   };
-  const STEP = 2; // 等温線の間隔(℃)
   map.createPane("sst").style.zIndex = 250;      // 背景地図(200)の上、流線(400)の下
   map.createPane("sstline").style.zIndex = 260;
   map.createPane("sstlabel").style.zIndex = 430; // 流線の上に℃ラベル
@@ -22,6 +21,7 @@ window.SstLayer = (map) => {
   const lineRenderer = L.canvas({ pane: "sstline", padding: 0.3 });
   const lineGroup = L.layerGroup(), labelGroup = L.layerGroup();
   let data = null, overlay = null, on = false, opacity = 0.7, contour = true, chains = [];
+  let STEP = 2; // 等温線の間隔(℃)。1 または 2
 
   // 格子の双一次補間（欠測は重みから除外）。水温(℃)または null
   function at(lat, lon) {
@@ -63,7 +63,7 @@ window.SstLayer = (map) => {
     if (on) overlay.addTo(map);
   }
 
-  // マーチングスクエア法で STEP℃ごとの等温線を作り、線分をつないで折れ線にする
+  // マーチングスクエア法で STEP(1か2)℃ごとの等温線を作り、線分をつないで折れ線にする
   function buildChains() {
     chains = [];
     if (!data) return;
@@ -170,6 +170,7 @@ window.SstLayer = (map) => {
     show(v) { on = v; if (overlay) { v ? overlay.addTo(map) : map.removeLayer(overlay); } refresh(); },
     setOpacity(o) { opacity = o; if (overlay) overlay.setOpacity(o); },
     setContour(c) { contour = c; refresh(); },
+    setStep(n) { STEP = n; buildChains(); refresh(); },
     at,
     legend: STOPS.filter((s) => [0, 8, 14, 18, 21, 25, 28, 31].includes(s[0])).map(([t, c]) => [t, `rgb(${c.join(",")})`]),
   };
