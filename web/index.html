@@ -53,6 +53,16 @@
     </section>
 
     <section>
+      <h2>海面水温</h2>
+      <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
+      <label class="row"><input type="checkbox" id="sstContour" checked> 等温線（2℃ごと）</label>
+      <div id="sstLegend" class="legend"></div>
+      <div id="sstMeta" class="meta"></div>
+      <p class="note">NOAA CoastWatch の日次合成水温（約0.15度に間引き）です。黒潮の北縁や渦は水温の境目（等温線の密な所）に現れます。公式の水温図は海保の海洋速報（水温）をご確認ください。</p>
+    </section>
+
+    <section>
       <h2>流れ場（参考・モデル外）</h2>
       <label class="row"><input type="checkbox" id="flowOn"> 表層の流れを粒子で表示</label>
       <div id="flowLegend" class="legend"></div>
@@ -71,6 +81,8 @@
       <div class="row">
         <select id="basemap">
           <option value="pale">地理院 淡色</option>
+          <option value="gebco">海底地形 GEBCO（水深の色分け）</option>
+          <option value="ocean">海洋図 Esri（水深の陰影・地名）</option>
           <option value="std">地理院 標準</option>
           <option value="photo">地理院 写真</option>
           <option value="blank">白地図</option>
@@ -81,7 +93,7 @@
         <button id="dlGeo">GeoJSON保存</button>
         <button id="fit">全体表示</button>
       </div>
-      <p class="note">地図をクリックすると、その地点から最寄りの黒潮までの距離と方位を表示します。</p>
+      <p class="note">地図をクリックすると、最寄りの黒潮までの距離・方位・水温・水深（GEBCO）を表示します。</p>
     </section>
 
     <p class="foot">流線は概位で、1〜2マイルの誤差を含むことがあります。渦などは表現されません。航行の安全確保には公式の海洋速報をご確認ください。</p>
@@ -91,6 +103,7 @@
   <div id="toast" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/flow.js"></script>
+  <script src="js/sst.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

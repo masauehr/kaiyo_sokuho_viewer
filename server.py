@@ -19,7 +19,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 BASE = "https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/"
 ROOT = Path(__file__).resolve().parent
@@ -33,6 +33,11 @@ CACHE_MAX_FILES = int(os.environ.get("CACHE_MAX_FILES", "80"))
 # 流れ場（NOAA CoastWatch ERDDAP: 海面高度から求めた表層地衡流 0.25度・日次）
 FLOW_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDNRTcurrentsDaily"
 FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲（日本近海）
+# 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
+SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
+SST_AREA = "[(15):3:(50)][(115):3:(160)]"
+# 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
+GEBCO_WMS = "https://wms.gebco.net/mapserv"
 UA = {"User-Agent": "kaiyo_sokuho_viewer/0.1 (personal use)"}
 
 # zip内フォルダ名 → 海流名
@@ -52,8 +57,8 @@ def fetch(url, timeout=40):
 
 
 def fetch_flow_url(url, timeout=60):
-    """ERDDAP から取得する（接続先は FLOW_BASE 配下のみ）。"""
-    if not url.startswith(FLOW_BASE):
+    """ERDDAP から取得する（接続先は流れ場・水温のデータセット配下のみ）。"""
+    if not url.startswith((FLOW_BASE, SST_BASE)):
         raise ValueError("許可されていないURLです")
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -105,6 +110,68 @@ def get_flow(date):
         path.write_bytes(body)
         prune_cache()
     return body
+
+
+_sst_last = {"t": 0, "v": None}
+
+
+def sst_last_date():
+    """水温データの最新日。1時間キャッシュ。"""
+    if time.time() - _sst_last["t"] < 3600 and _sst_last["v"]:
+        return _sst_last["v"]
+    txt = fetch_flow_url(SST_BASE + ".csv?time[(last)]")
+    d = re.search(r"(\d{4}-\d{2}-\d{2})T", txt).group(1)
+    _sst_last.update(t=time.time(), v=d)
+    return d
+
+
+def get_sst(date):
+    """指定日（最新日より後なら最新日）の海面水温を JSON(bytes) で返す。
+
+    v は水温(℃)を100倍した整数の配列（行優先・南→北、西→東）。海氷・陸・欠測は null。
+    """
+    last = sst_last_date()
+    if not date or date > last:
+        date = last
+    path = CACHE / f"sst_{date}.json"
+    with _lock:
+        if path.exists():
+            return path.read_bytes()
+        url = f"{SST_BASE}.csv?analysed_sst[({date}T12:00:00Z)]{SST_AREA}"
+        rows = fetch_flow_url(url, timeout=120).strip().split("\n")[2:]
+        lats, lons, v = [], [], []
+        for ln in rows:
+            c = ln.split(",")
+            lat, lon = float(c[1]), float(c[2])
+            if not lats or lat != lats[-1]:
+                lats.append(lat)
+            if len(lats) == 1:
+                lons.append(lon)
+            try:
+                v.append(round((float(c[3]) - 273.15) * 100))
+            except ValueError:  # NaN
+                v.append(None)
+        out = {"date": date, "lat0": lats[0], "lon0": lons[0],
+               "dlat": round(lats[1] - lats[0], 4), "dlon": round(lons[1] - lons[0], 4),
+               "ny": len(lats), "nx": len(lons), "v": v,
+               "source": "NOAA CoastWatch 海面水温 (Geo-polar Blended, 日次)"}
+        body = json.dumps(out, separators=(",", ":")).encode()
+        path.write_bytes(body)
+        prune_cache()
+    return body
+
+
+def get_depth(lat, lon):
+    """地点の水深(m)を GEBCO の GetFeatureInfo から取得する。陸地は標高が正になる。"""
+    d = 0.1  # 範囲が狭すぎると結果が返らないため 0.2度四方の中心点を問い合わせる
+    q = (f"SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo&LAYERS=GEBCO_LATEST_2&QUERY_LAYERS=GEBCO_LATEST_2"
+         f"&STYLES=&SRS=EPSG:4326&BBOX={lon - d},{lat - d},{lon + d},{lat + d}&WIDTH=100&HEIGHT=100&X=50&Y=50"
+         "&INFO_FORMAT=text/plain")
+    req = urllib.request.Request(f"{GEBCO_WMS}?{q}", headers=UA)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        txt = r.read().decode("utf-8", "replace")
+    m = re.search(r"value_list = '(-?\d+)'", txt)
+    return {"elevation": int(m.group(1)) if m else None}
 
 
 def list_issues():
@@ -260,12 +327,23 @@ class Handler(SimpleHTTPRequestHandler):
             m = re.fullmatch(r"/api/flow(?:/(\d{4}-\d{2}-\d{2}))?", p)
             if m:
                 return self._send(get_flow(m.group(1)), "application/json; charset=utf-8", max_age=3600)
+            m = re.fullmatch(r"/api/sst(?:/(\d{4}-\d{2}-\d{2}))?", p)
+            if m:
+                return self._send(get_sst(m.group(1)), "application/json; charset=utf-8", max_age=3600)
+            if p == "/api/depth":
+                q = parse_qs(urlparse(self.path).query)
+                lat, lon = float(q["lat"][0]), float(q["lon"][0])
+                if not (-90 <= lat <= 90 and -180 <= lon <= 360):
+                    raise ValueError("緯度経度が範囲外です")
+                return self._send(json.dumps(get_depth(lat, ((lon + 180) % 360) - 180)).encode(), "application/json; charset=utf-8", max_age=86400)
             m = re.fullmatch(r"/api/gis/(20\d\d)/(\d{3})", p)
             if m:
                 return self._send(get_gis(*m.groups()), "application/json; charset=utf-8", max_age=86400)
             m = re.fullmatch(r"/api/image/(20\d\d)/(\d{3})", p)
             if m:
                 return self._send(get_image(*m.groups()), "image/png", max_age=86400)
+        except (ValueError, KeyError) as e:  # 入力不正は 400
+            return self._send(json.dumps({"error": str(e)}, ensure_ascii=False).encode(), "application/json; charset=utf-8", 400)
         except Exception as e:  # 取得失敗は 502 で返す
             return self._send(json.dumps({"error": str(e)}, ensure_ascii=False).encode(), "application/json; charset=utf-8", 502)
         return super().do_GET()

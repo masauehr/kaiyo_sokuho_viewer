@@ -47,3 +47,11 @@
 | 範囲外の日付 | 最新日にクランプ |
 | 注意 | 地衡流のみ（風による吹送流なし）。沿岸・小渦は不正確。ライセンスは自由利用・再配布可だが無保証。出典: NOAA CoastWatch / AVISO+ |
 | 不採用 | HYCOM expt_93.0（2024-09-05終了）／JCOPE（API無し・非営利メディア配布）／Copernicus（要アカウント） |
+
+## 海面水温・海底地形（海保以外・参考）
+| 項目 | 内容 |
+|---|---|
+| 水温 | NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily`（analysed_sst、ケルビン、0.05度日次）。`[(15):3:(50)][(115):3:(160)]` で0.15度に間引き。最新は約2〜4日前、時刻は12:00Z |
+| 海底地形（背景） | GEBCO WMS `https://wms.gebco.net/mapserv`、レイヤー `GEBCO_LATEST_2`。注意書き「航行・安全用途には使用不可」。出典: GEBCO Compilation Group |
+| 海洋図（背景） | Esri `World_Ocean_Base` ＋ `World_Ocean_Reference` タイル。出典表記必須 |
+| 水深の点取得 | GEBCO WMS GetFeatureInfo（`value_list` が標高m、海は負）。0.2度四方・100pxで中央を問い合わせる（狭いと空返し） |

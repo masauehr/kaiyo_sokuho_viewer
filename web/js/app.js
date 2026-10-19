@@ -6,11 +6,23 @@
     { key: "tg", name: "津軽暖流", color: "#1f6fd1" },
     { key: "so", name: "宗谷暖流", color: "#1b9e5a" },
   ];
+  const GEBCO_ATTR = "海底地形: <a href='https://www.gebco.net/'>GEBCO Compilation Group (2024) GEBCO 2024 Grid</a>（航行・安全用途には使用不可）";
   const BASEMAPS = {
     pale: ["https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", "淡色地図"],
     std: ["https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", "標準地図"],
     photo: ["https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg", "写真"],
     blank: ["https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png", "白地図"],
+  };
+  // 海底地形の背景図（水深が色や陰影で分かる）
+  const makeBasemap = {
+    gebco: () => L.tileLayer.wms("https://wms.gebco.net/mapserv?", {
+      layers: "GEBCO_LATEST_2", format: "image/png", version: "1.3.0", maxZoom: 12, attribution: GEBCO_ATTR }),
+    ocean: () => L.layerGroup([
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 10, attribution: "海洋図: Esri, GEBCO, NOAA, National Geographic, DeLorme, HERE, Geonames.org ほか" }),
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 10, pane: "shadowPane" }),
+    ]),
   };
   const $ = (id) => document.getElementById(id);
   const geoCache = new Map();
@@ -21,6 +33,7 @@
   const map = L.map("map", { zoomControl: true }).setView([32, 137], 5);
   const flow = FlowLayer(map);
   const flowCache = new Map();
+  const sst = SstLayer(map), sstCache = new Map();
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
     t.textContent = msg; t.hidden = false;
@@ -29,11 +42,16 @@
 
   function setBasemap(k) {
     if (tile) map.removeLayer(tile);
-    tile = L.tileLayer(BASEMAPS[k][0], {
+    tile = makeBasemap[k] ? makeBasemap[k]() : L.tileLayer(BASEMAPS[k][0], {
       maxZoom: k === "blank" ? 14 : 18,
-      attribution: `<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル（${BASEMAPS[k][1]}）</a> / 海流：<a href="https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html">海上保安庁 海洋速報</a>`,
-    }).addTo(map);
-    tile.bringToBack();
+      attribution: `<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル（${BASEMAPS[k][1]}）</a>`,
+    });
+    tile.addTo(map);
+    if (tile.bringToBack) tile.bringToBack();
+    if (map.attributionControl && !map._kaihoAttr) {
+      map._kaihoAttr = true;
+      map.attributionControl.addAttribution('海流: <a href="https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html">海上保安庁 海洋速報</a>');
+    }
   }
 
   async function loadGeo(issue) {
@@ -104,6 +122,7 @@
       renderAxis(g);
       if ($("imgOn").checked) setImage();
       loadFlow(g);
+      loadSst(g);
     } catch (e) { toast(e.message); stop(); }
   }
 
@@ -128,6 +147,24 @@
       if (my !== token) return;
       flow.setData(d);
       $("flowMeta").textContent = `流れ場の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
+    } catch (e) { toast(e.message); }
+  }
+
+  // 表示中の号の解析日に合わせて海面水温を読み込む（未公開日なら最新日）
+  async function loadSst(g) {
+    if (!$("sstOn").checked) return;
+    const date = analysisDate(g), my = token;
+    try {
+      let d = sstCache.get(date);
+      if (!d) {
+        const res = await fetch(`/api/sst${date ? "/" + date : ""}`);
+        if (!res.ok) throw new Error("海面水温の取得に失敗しました");
+        d = await res.json();
+        sstCache.set(date, d);
+      }
+      if (my !== token) return;
+      sst.setData(d);
+      $("sstMeta").textContent = `水温の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
     } catch (e) { toast(e.message); }
   }
 
@@ -182,8 +219,15 @@
       L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" }),
     ]).addTo(map);
     const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
-    toast(`最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` +
-      (f ? `／この地点の流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : ""), 7000);
+    const t = $("sstOn").checked ? sst.at(e.latlng.lat, e.latlng.lng) : null;
+    const msg = `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` +
+      (f ? `／流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : "") + (t !== null ? `／水温 ${t.toFixed(1)}℃` : "");
+    toast(msg, 8000);
+    // 水深は外部(GEBCO)への問い合わせのため、取得できたら追記して再表示する
+    fetch(`/api/depth?lat=${e.latlng.lat.toFixed(4)}&lon=${e.latlng.lng.toFixed(4)}`).then((x) => x.json()).then((d) => {
+      if (typeof d.elevation !== "number") return;
+      toast(msg + (d.elevation < 0 ? `／水深 約${-d.elevation}m` : `／陸地（標高 約${d.elevation}m）`), 8000);
+    }).catch(() => {});
   });
 
   function initUi() {
@@ -204,6 +248,10 @@
     $("imgOn").onchange = (e) => { $("imgBox").hidden = !e.target.checked; if (e.target.checked) setImage(); };
     $("flowLegend").innerHTML = flow.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}m/s〜</span>`).join("");
     $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
+    $("sstLegend").innerHTML = sst.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}℃</span>`).join("");
+    $("sstOn").onchange = (e) => { sst.show(e.target.checked); if (e.target.checked && curGeo) loadSst(curGeo); };
+    $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
+    $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;

@@ -6,7 +6,7 @@
 
 - 公開版: https://kaiyo-sokuho-viewer.onrender.com/（Render無料プラン。スリープ復帰に30〜60秒かかる場合あり）
 - 出典: [海上保安庁 海洋情報部 海洋速報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/) ／ [流軸数値・GIS情報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html)
-- 流れ場は NOAA CoastWatch / AVISO+ の表層地衡流（海保とは別データ・約25km格子）。
+- 水温・流れ場は NOAA CoastWatch / AVISO+ の表層地衡流（海保とは別データ）。海底地形は GEBCO（航行・安全用途には使用不可）。
 - 流線は概位で、1〜2マイルの誤差を含みます。**航行の安全確保には公式の海洋速報を確認してください。**
 
 ## 起動
@@ -33,6 +33,9 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 公式海流図の表示 | 公式PNG（海流図）を別枠で表示 |
 | 背景地図 | 地理院タイル（淡色・標準・写真・白地図） |
 | 流れ場（参考） | NOAA CoastWatch の表層地衡流（日次・0.25度）を粒子アニメーションで表示。号の解析日に合わせ、色は流速。クリックで地点の流速（ノット・向き）も表示 |
+| 海面水温 | NOAA CoastWatch の日次合成水温を色付きで重ねる（濃さ調整・2℃ごとの等温線・号の解析日に連動） |
+| 海底地形の背景図 | 背景地図に「GEBCO（水深の色分け）」「Esri 海洋図（水深の陰影・地名）」を追加 |
+| 地点の水温・水深 | 地図クリックで水温（モデル値）と水深（GEBCO）も表示 |
 | GeoJSON保存 | 表示中の号をGeoJSONで保存 |
 
 ## Render へのデプロイ（PC不要で公開）
