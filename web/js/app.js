@@ -127,11 +127,13 @@
     } catch (e) { toast(e.message); stop(); }
   }
 
-  // 解析対象日（例: R8(2026)/10/15）→ YYYY-MM-DD
-  function analysisDate(g) {
-    const m = (g.meta && g.meta.analysisDate || "").match(/\((\d{4})\)\/(\d+)\/(\d+)/);
+  // 和暦併記の日付（例: R8(2026)/10/15）→ YYYY-MM-DD。key は meta のキー（analysisDate / issueDate）
+  function metaDate(g, key) {
+    const m = (g.meta && g.meta[key] || "").match(/\((\d{4})\)\/(\d+)\/(\d+)/);
     return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : "";
   }
+  const analysisDate = (g) => metaDate(g, "analysisDate"); // 解析対象日（海流図データの基準日）
+  const issueDate = (g) => metaDate(g, "issueDate");       // 発行日（号のプルダウンに出る日付＝海流図の日付）
 
   // 表示中の号の解析対象日に合わせて流れ場を読み込む（最新日より後なら最新日になる）
   async function loadFlow(g) {
@@ -151,11 +153,11 @@
     } catch (e) { toast(e.message); }
   }
 
-  // 表示中の号の解析日に合わせて海面水温を読み込む（未公開日なら最新日）
+  // 表示中の号の発行日（海流図の日付）と同じ日の海面水温を読み込む（未公開日なら最新日）
   async function loadSst(g) {
     if (!$("sstOn").checked) return;
     // 「最新日」は日付を指定せず、サーバーが公開済みの最新日を返す
-    const date = $("sstDate").value === "latest" ? "" : analysisDate(g), my = token;
+    const date = $("sstDate").value === "latest" ? "" : issueDate(g), my = token;
     try {
       const key = `${sstSrc()}:${date}`;
       let d = sstCache.get(key);
@@ -167,7 +169,7 @@
       }
       if (my !== token) return;
       sst.setData(d);
-      $("sstMeta").textContent = `${d.source}　日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
+      $("sstMeta").textContent = `${d.source}　日付: ${d.date}${date && d.date !== date ? "（この号の日付のデータは未公開のため最新日）" : ""}`;
     } catch (e) { toast(e.message); }
   }
 
