@@ -37,3 +37,13 @@
 | 用語・凡例 | `exp/yougo.html`、`setumei2.html` | | |
 
 利用条件は [リンク・著作権等](http://www1.kaiho.mlit.go.jp/copyright.html) を確認すること。
+
+## 流れ場（海保以外・参考）
+| 項目 | 内容 |
+|---|---|
+| データ | NOAA CoastWatch ERDDAP `noaacwBLENDEDNRTcurrentsDaily`（表層地衡流 u_current/v_current、全球0.25度、日次） |
+| URL | `https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDNRTcurrentsDaily` |
+| 取得 | `.csv?u_current[(日付T00:00:00Z)][(15):(50)][(115):(160)],v_current[...]`。キー不要。最新は約2日前 |
+| 範囲外の日付 | 最新日にクランプ |
+| 注意 | 地衡流のみ（風による吹送流なし）。沿岸・小渦は不正確。ライセンスは自由利用・再配布可だが無保証。出典: NOAA CoastWatch / AVISO+ |
+| 不採用 | HYCOM expt_93.0（2024-09-05終了）／JCOPE（API無し・非営利メディア配布）／Copernicus（要アカウント） |

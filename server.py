@@ -30,6 +30,9 @@ HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8780"))
 # 取得済みの号を保持する上限（無料プランのディスク・メモリ節約。古い順に削除）
 CACHE_MAX_FILES = int(os.environ.get("CACHE_MAX_FILES", "80"))
+# 流れ場（NOAA CoastWatch ERDDAP: 海面高度から求めた表層地衡流 0.25度・日次）
+FLOW_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDNRTcurrentsDaily"
+FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲（日本近海）
 UA = {"User-Agent": "kaiyo_sokuho_viewer/0.1 (personal use)"}
 
 # zip内フォルダ名 → 海流名
@@ -46,6 +49,62 @@ def fetch(url, timeout=40):
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def fetch_flow_url(url, timeout=60):
+    """ERDDAP から取得する（接続先は FLOW_BASE 配下のみ）。"""
+    if not url.startswith(FLOW_BASE):
+        raise ValueError("許可されていないURLです")
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+_flow_last = {"t": 0, "v": None}
+
+
+def flow_last_date():
+    """流れ場データの最新日（YYYY-MM-DD）。1時間キャッシュ。"""
+    if time.time() - _flow_last["t"] < 3600 and _flow_last["v"]:
+        return _flow_last["v"]
+    txt = fetch_flow_url(FLOW_BASE + ".csv?time[(last)]")
+    d = re.search(r"(\d{4}-\d{2}-\d{2})T", txt).group(1)
+    _flow_last.update(t=time.time(), v=d)
+    return d
+
+
+def get_flow(date):
+    """指定日（最新日より後なら最新日）の流れ場を JSON(bytes) で返す。
+
+    u/v は行優先（南→北、西→東）の配列で、陸地・欠測は null。
+    """
+    last = flow_last_date()
+    if not date or date > last:
+        date = last
+    path = CACHE / f"flow_{date}.json"
+    with _lock:
+        if path.exists():
+            return path.read_bytes()
+        t = f"(\"{date}T00:00:00Z\")".replace('"', "")
+        url = (f"{FLOW_BASE}.csv?u_current[{t}]{FLOW_AREA},v_current[{t}]{FLOW_AREA}")
+        rows = fetch_flow_url(url, timeout=90).strip().split("\n")[2:]
+        lats, lons, u, v = [], [], [], []
+        for ln in rows:
+            c = ln.split(",")
+            lat, lon = float(c[1]), float(c[2])
+            if not lats or lat != lats[-1]:
+                lats.append(lat)
+            if len(lats) == 1:
+                lons.append(lon)
+            u.append(None if c[3] in ("NaN", "") else round(float(c[3]), 3))
+            v.append(None if c[4] in ("NaN", "") else round(float(c[4]), 3))
+        out = {"date": date, "lat0": lats[0], "lon0": lons[0], "d": 0.25,
+               "ny": len(lats), "nx": len(lons), "u": u, "v": v,
+               "source": "NOAA CoastWatch / AVISO+ 表層地衡流（日次・0.25度）"}
+        body = json.dumps(out, separators=(",", ":")).encode()
+        path.write_bytes(body)
+        prune_cache()
+    return body
 
 
 def list_issues():
@@ -198,6 +257,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(b"ok", "text/plain")
             if p == "/api/issues":
                 return self._send(json.dumps(list_issues(), ensure_ascii=False).encode(), "application/json; charset=utf-8", max_age=300)
+            m = re.fullmatch(r"/api/flow(?:/(\d{4}-\d{2}-\d{2}))?", p)
+            if m:
+                return self._send(get_flow(m.group(1)), "application/json; charset=utf-8", max_age=3600)
             m = re.fullmatch(r"/api/gis/(20\d\d)/(\d{3})", p)
             if m:
                 return self._send(get_gis(*m.groups()), "application/json; charset=utf-8", max_age=86400)

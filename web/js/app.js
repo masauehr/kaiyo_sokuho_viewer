@@ -19,6 +19,8 @@
   let curLayer = null, ghostLayer = null, clickLayer = null, curGeo = null, token = 0;
 
   const map = L.map("map", { zoomControl: true }).setView([32, 137], 5);
+  const flow = FlowLayer(map);
+  const flowCache = new Map();
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
     t.textContent = msg; t.hidden = false;
@@ -101,7 +103,32 @@
       $("meta").textContent = `${m.issueNo || issue.label}　発行 ${m.issueDate || ""}　解析対象 ${m.analysisDate || ""}`;
       renderAxis(g);
       if ($("imgOn").checked) setImage();
+      loadFlow(g);
     } catch (e) { toast(e.message); stop(); }
+  }
+
+  // 解析対象日（例: R8(2026)/10/15）→ YYYY-MM-DD
+  function analysisDate(g) {
+    const m = (g.meta && g.meta.analysisDate || "").match(/\((\d{4})\)\/(\d+)\/(\d+)/);
+    return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : "";
+  }
+
+  // 表示中の号の解析対象日に合わせて流れ場を読み込む（最新日より後なら最新日になる）
+  async function loadFlow(g) {
+    if (!$("flowOn").checked) return;
+    const date = analysisDate(g), my = token;
+    try {
+      let d = flowCache.get(date);
+      if (!d) {
+        const res = await fetch(`/api/flow${date ? "/" + date : ""}`);
+        if (!res.ok) throw new Error("流れ場の取得に失敗しました");
+        d = await res.json();
+        flowCache.set(date, d);
+      }
+      if (my !== token) return;
+      flow.setData(d);
+      $("flowMeta").textContent = `流れ場の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
+    } catch (e) { toast(e.message); }
   }
 
   function setImage() {
@@ -154,7 +181,9 @@
       L.circleMarker(e.latlng, { radius: 5, color: "#000", fillOpacity: 1 }),
       L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" }),
     ]).addTo(map);
-    toast(`最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向`, 6000);
+    const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
+    toast(`最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` +
+      (f ? `／この地点の流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : ""), 7000);
   });
 
   function initUi() {
@@ -173,6 +202,8 @@
     $("ghostOn").onchange = $("ghostBack").onchange = () => show(idx);
     $("basemap").onchange = (e) => setBasemap(e.target.value);
     $("imgOn").onchange = (e) => { $("imgBox").hidden = !e.target.checked; if (e.target.checked) setImage(); };
+    $("flowLegend").innerHTML = flow.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}m/s〜</span>`).join("");
+    $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;
