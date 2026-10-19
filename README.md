@@ -18,9 +18,9 @@ cd ~/projects/kaiyo_sokuho_viewer
 ```
 
 標準ライブラリのみ（追加インストール不要）。ブラウザからは海保サイトをCORSで直接取得できないため、
-`server.py` がプロキシ兼 KML/DBF→GeoJSON 変換を行い、`data/cache/` に号ごとにキャッシュします。
+`server.py` が中継と変換（GeoJSON・流れ場・水温）を行い、`data/cache/` にキャッシュします。API一覧・データソース・設計判断は [kaiyo-sokuho-viewer.md](kaiyo-sokuho-viewer.md) にまとめています。
 
-## 現在の機能（v0.1）
+## 現在の機能（v0.2）
 
 | 機能 | 内容 |
 |---|---|
@@ -63,9 +63,10 @@ cd ~/projects/kaiyo_sokuho_viewer
 
 ```
 kaiyo_sokuho_viewer/
-├── server.py        # 静的配信 + 海保プロキシ + KML/DBF→GeoJSON変換
-├── web/             # フロント（Vanilla JS + Leaflet）
-├── data/cache/      # 取得済み号のGeoJSON/PNG（git除外）
+├── server.py        # 静的配信 + 外部データ中継 + 変換（KML/DBF/CSV/MGDSST→JSON）
+├── render.yaml      # Render Blueprint
+├── web/             # フロント（Vanilla JS + Leaflet。app.js / flow.js / sst.js）
+├── data/cache/      # 取得済みデータ（git除外）
 ├── docs/            # データ仕様・機能計画
 └── tests/           # 変換処理のテスト
 ```
