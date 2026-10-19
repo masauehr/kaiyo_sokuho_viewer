@@ -36,7 +36,7 @@ FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲�
 # 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
 SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
 SST_AREA = "[(15):3:(50)][(115):3:(160)]"
-# 気象庁 MGDSST（全球日別海面水温 0.25度。1日遅れで公開。数値はgz圧縮テキスト）
+# 気象庁 MGDSST（全球日別海面水温 0.25度。前日の値まで公開。数値はgz圧縮テキスト）
 JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
 GEBCO_WMS = "https://wms.gebco.net/mapserv"

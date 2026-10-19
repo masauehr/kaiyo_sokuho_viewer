@@ -57,13 +57,13 @@
       <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
       <div class="row">
         <select id="sstSrc">
-          <option value="jma">気象庁 MGDSST（0.25度・1日遅れ）</option>
-          <option value="noaa">NOAA（0.15度に間引き・2〜4日遅れ）</option>
+          <option value="jma">気象庁 MGDSST（0.25度・前日の値まで公開）</option>
+          <option value="noaa">NOAA（0.15度に間引き・2〜4日前の値まで公開）</option>
         </select>
       </div>
       <div class="row">
         <select id="sstDate">
-          <option value="link">日付: 海流図と同じ日（号の発行日）</option>
+          <option value="link">日付: 海流図の解析日に合わせる</option>
           <option value="latest">日付: 最新日（気象庁の実況図と同じ）</option>
         </select>
       </div>

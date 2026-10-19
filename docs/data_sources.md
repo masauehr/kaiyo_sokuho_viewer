@@ -51,8 +51,8 @@
 ## 海面水温・海底地形（海保以外・参考）
 | 項目 | 内容 |
 |---|---|
-| 水温（既定）気象庁 MGDSST | `https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/YYYY/mgd_sst_glb_DYYYYMMDD.txt.gz`。全球0.25度・日別・最新は前日。ヘッダ1行＋720行(北→南)×1440値(西→東、0.125E〜)×3桁、0.1℃単位、888=海氷、999=陸。年ディレクトリの一覧で最新日を取得。Readme: `.../mgd_sst_glb_D/Readme_mgd_sst_glb_D` |
-| 水温（切替）NOAA | NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily`（analysed_sst、ケルビン、0.05度日次）。`[(15):3:(50)][(115):3:(160)]` で0.15度に間引き。最新は約2〜4日前、時刻は12:00Z |
+| 水温（既定）気象庁 MGDSST | `https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/YYYY/mgd_sst_glb_DYYYYMMDD.txt.gz`。全球0.25度・日別・前日の値まで公開。ヘッダ1行＋720行(北→南)×1440値(西→東、0.125E〜)×3桁、0.1℃単位、888=海氷、999=陸。年ディレクトリの一覧で最新日を取得。Readme: `.../mgd_sst_glb_D/Readme_mgd_sst_glb_D` |
+| 水温（切替）NOAA | NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily`（analysed_sst、ケルビン、0.05度日次）。`[(15):3:(50)][(115):3:(160)]` で0.15度に間引き。最新は2〜4日前の値、時刻は12:00Z |
 | 海底地形（背景） | GEBCO WMS `https://wms.gebco.net/mapserv`、レイヤー `GEBCO_LATEST_2`。注意書き「航行・安全用途には使用不可」。出典: GEBCO Compilation Group |
 | 海洋図（背景） | Esri `World_Ocean_Base` ＋ `World_Ocean_Reference` タイル。出典表記必須 |
 | 水深の点取得 | GEBCO WMS GetFeatureInfo（`value_list` が標高m、海は負）。0.2度四方・100pxで中央を問い合わせる（狭いと空返し） |
