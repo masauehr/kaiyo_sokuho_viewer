@@ -55,11 +55,17 @@
     <section>
       <h2>海面水温</h2>
       <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
+      <div class="row">
+        <select id="sstSrc">
+          <option value="jma">気象庁 MGDSST（0.25度・1日遅れ）</option>
+          <option value="noaa">NOAA（0.15度に間引き・2〜4日遅れ）</option>
+        </select>
+      </div>
       <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
       <label class="row"><input type="checkbox" id="sstContour" checked> 等温線（2℃ごと）</label>
       <div id="sstLegend" class="legend"></div>
       <div id="sstMeta" class="meta"></div>
-      <p class="note">NOAA CoastWatch の日次合成水温（約0.15度に間引き）です。黒潮の北縁や渦は水温の境目（等温線の密な所）に現れます。公式の水温図は海保の海洋速報（水温）をご確認ください。</p>
+      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
     </section>
 
     <section>

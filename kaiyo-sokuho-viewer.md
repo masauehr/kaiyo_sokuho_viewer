@@ -41,6 +41,8 @@ cd ~/projects/kaiyo_sokuho_viewer
 
 **水温・海底地形（2026-10-19追加）**: 水温は NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily`（日次・0.05度、約0.15度に間引き。単位ケルビン→℃変換、約2〜4日遅れ）を `/api/sst[/YYYY-MM-DD]` でJSON化し、`web/js/sst.js` がメルカトル図法の画像にして重畳（等温線2℃・濃さ調整）。海底地形は背景図に GEBCO WMS（`GEBCO_LATEST_2`）と Esri Ocean を追加。地点の水深は `/api/depth` が GEBCO の GetFeatureInfo を中継（範囲0.2度四方で問い合わせないと空返しになる）。GEBCO WMS は「航行・安全用途には使用不可」。
 
+**水温の出典切替・等温線ラベル（2026-10-19追加）**: 水温の既定を気象庁 MGDSST（`https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/YYYY/mgd_sst_glb_DYYYYMMDD.txt.gz`、全球0.25度・日別、最新は前日。形式=1行目ヘッダ＋720行×1440値×3桁（0.1℃単位、888=海氷、999=陸）、北→南・西→東）にし、NOAA は `?src=noaa` で切替（`/api/sst[/日付]?src=jma|noaa`）。最新日はディレクトリ一覧から取得。等温線はマーチングスクエア法でベクトル化し、線に沿って回転する「NN℃」ラベルを表示範囲・拡大率に合わせて付け直す（短い線は無印）。気象庁データ利用時は出典「気象庁」を明記すること。
+
 ## 設計判断・落とし穴
 - 流れ場の候補調査（2026-10-19）: HYCOM（expt_93.0）は2024-09-05で更新終了、JCOPEはAPI無し（メディア配布）、Copernicusは要アカウントのため、NOAA CoastWatch ERDDAPを採用。
 - ブラウザから海保サイトは直接取得不可（CORSヘッダなし）→ローカルプロキシ必須。

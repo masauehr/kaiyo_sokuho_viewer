@@ -33,3 +33,5 @@ input[type=range] { width:100%; }
 }
 .legend { display:flex; gap:8px; flex-wrap:wrap; font-size:11px; margin:4px 0; }
 .legend i { display:inline-block; width:14px; height:4px; border-radius:2px; margin-right:3px; vertical-align:middle; }
+.sst-label span { position:absolute; left:0; top:0; white-space:nowrap; font:600 11px/1 -apple-system,"Hiragino Sans",sans-serif; color:#1a1a1a;
+  text-shadow:-1px -1px 0 #fffc,1px -1px 0 #fffc,-1px 1px 0 #fffc,1px 1px 0 #fffc,0 0 3px #fff; }

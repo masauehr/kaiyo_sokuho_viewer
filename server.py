@@ -36,6 +36,8 @@ FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲�
 # 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
 SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
 SST_AREA = "[(15):3:(50)][(115):3:(160)]"
+# 気象庁 MGDSST（全球日別海面水温 0.25度。1日遅れで公開。数値はgz圧縮テキスト）
+JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
 GEBCO_WMS = "https://wms.gebco.net/mapserv"
 UA = {"User-Agent": "kaiyo_sokuho_viewer/0.1 (personal use)"}
@@ -125,15 +127,82 @@ def sst_last_date():
     return d
 
 
-def get_sst(date):
-    """指定日（最新日より後なら最新日）の海面水温を JSON(bytes) で返す。
+def fetch_jma(url, timeout=60):
+    """気象庁(MGDSST)から取得する（接続先は JMA_SST_BASE 配下のみ）。"""
+    if not url.startswith(JMA_SST_BASE):
+        raise ValueError("許可されていないURLです")
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+_jma_last = {"t": 0, "v": None}
+
+
+def jma_last_date():
+    """MGDSST の最新日（年ディレクトリの一覧から取得）。1時間キャッシュ。"""
+    if time.time() - _jma_last["t"] < 3600 and _jma_last["v"]:
+        return _jma_last["v"]
+    year = time.gmtime().tm_year
+    for y in (year, year - 1):  # 年初は前年の一覧から探す
+        try:
+            html = fetch_jma(f"{JMA_SST_BASE}{y}/").decode("utf-8", "replace")
+        except Exception:
+            continue
+        days = re.findall(r"mgd_sst_glb_D(\d{8})\.txt\.gz", html)
+        if days:
+            d = max(days)
+            d = f"{d[:4]}-{d[4:6]}-{d[6:]}"
+            _jma_last.update(t=time.time(), v=d)
+            return d
+    raise RuntimeError("気象庁の海面水温の最新日が取得できません")
+
+
+def get_sst_jma(date):
+    """気象庁 MGDSST を日本近海に切り出す。v は水温(℃)×100 の整数（南→北、西→東）。"""
+    last = jma_last_date()
+    if not date or date > last:
+        date = last
+    path = CACHE / f"sst_jma_{date}.json"
+    with _lock:
+        if path.exists():
+            return path.read_bytes()
+        ymd = date.replace("-", "")
+        raw = gzip.decompress(fetch_jma(f"{JMA_SST_BASE}{ymd[:4]}/mgd_sst_glb_D{ymd}.txt.gz", timeout=90))
+        lines = raw.decode("ascii", "replace").split("\n")[1:]  # 1行目はヘッダ（年月日）
+        # 行は北→南（89.875N〜）、列は西→東（0.125E〜）。北緯15〜50・東経115〜160 を切り出す
+        i0, i1, j0, j1 = 160, 300, 460, 640
+        rows = []
+        for i in range(i1 - 1, i0 - 1, -1):  # 南→北の順に並べ替える
+            ln = lines[i]
+            for j in range(j0, j1):
+                tok = ln[3 * j:3 * j + 3].strip()
+                rows.append(None if tok in ("888", "999", "") else int(tok) * 10)
+        out = {"date": date, "lat0": round(89.875 - 0.25 * (i1 - 1), 3), "lon0": 0.125 + 0.25 * j0,
+               "dlat": 0.25, "dlon": 0.25, "ny": i1 - i0, "nx": j1 - j0, "v": rows,
+               "source": "気象庁 MGDSST（全球日別海面水温）"}
+        body = json.dumps(out, separators=(",", ":")).encode()
+        path.write_bytes(body)
+        prune_cache()
+    return body
+
+
+def get_sst(date, src="jma"):
+    """海面水温を JSON(bytes) で返す。src は "jma"（気象庁・既定）か "noaa"。"""
+    if src == "jma":
+        return get_sst_jma(date)
+    return get_sst_noaa(date)
+
+
+def get_sst_noaa(date):
+    """NOAA の海面水温（最新日より後なら最新日）。
 
     v は水温(℃)を100倍した整数の配列（行優先・南→北、西→東）。海氷・陸・欠測は null。
     """
     last = sst_last_date()
     if not date or date > last:
         date = last
-    path = CACHE / f"sst_{date}.json"
+    path = CACHE / f"sst_noaa_{date}.json"
     with _lock:
         if path.exists():
             return path.read_bytes()
@@ -329,7 +398,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(get_flow(m.group(1)), "application/json; charset=utf-8", max_age=3600)
             m = re.fullmatch(r"/api/sst(?:/(\d{4}-\d{2}-\d{2}))?", p)
             if m:
-                return self._send(get_sst(m.group(1)), "application/json; charset=utf-8", max_age=3600)
+                src = parse_qs(urlparse(self.path).query).get("src", ["jma"])[0]
+                if src not in ("jma", "noaa"):
+                    raise ValueError("src は jma か noaa です")
+                return self._send(get_sst(m.group(1), src), "application/json; charset=utf-8", max_age=3600)
             if p == "/api/depth":
                 q = parse_qs(urlparse(self.path).query)
                 lat, lon = float(q["lat"][0]), float(q["lon"][0])

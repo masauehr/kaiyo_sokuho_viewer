@@ -34,6 +34,7 @@
   const flow = FlowLayer(map);
   const flowCache = new Map();
   const sst = SstLayer(map), sstCache = new Map();
+  const sstSrc = () => $("sstSrc").value;
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
     t.textContent = msg; t.hidden = false;
@@ -155,16 +156,17 @@
     if (!$("sstOn").checked) return;
     const date = analysisDate(g), my = token;
     try {
-      let d = sstCache.get(date);
+      const key = `${sstSrc()}:${date}`;
+      let d = sstCache.get(key);
       if (!d) {
-        const res = await fetch(`/api/sst${date ? "/" + date : ""}`);
+        const res = await fetch(`/api/sst${date ? "/" + date : ""}?src=${sstSrc()}`);
         if (!res.ok) throw new Error("海面水温の取得に失敗しました");
         d = await res.json();
-        sstCache.set(date, d);
+        sstCache.set(key, d);
       }
       if (my !== token) return;
       sst.setData(d);
-      $("sstMeta").textContent = `水温の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
+      $("sstMeta").textContent = `${d.source}　日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
     } catch (e) { toast(e.message); }
   }
 
@@ -250,6 +252,7 @@
     $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
     $("sstLegend").innerHTML = sst.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}℃</span>`).join("");
     $("sstOn").onchange = (e) => { sst.show(e.target.checked); if (e.target.checked && curGeo) loadSst(curGeo); };
+    $("sstSrc").onchange = () => { if (curGeo) loadSst(curGeo); };
     $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
     $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
     $("fit").onclick = () => map.setView([32, 137], 5);
