@@ -61,6 +61,12 @@
           <option value="noaa">NOAA（0.15度に間引き・2〜4日遅れ）</option>
         </select>
       </div>
+      <div class="row">
+        <select id="sstDate">
+          <option value="link">日付: 表示中の号の解析日に連動</option>
+          <option value="latest">日付: 最新日（気象庁の実況図と同じ）</option>
+        </select>
+      </div>
       <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
       <div class="row">
         <label><input type="checkbox" id="sstContour" checked> 等温線</label>

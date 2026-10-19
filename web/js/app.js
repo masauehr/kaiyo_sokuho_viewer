@@ -154,7 +154,8 @@
   // 表示中の号の解析日に合わせて海面水温を読み込む（未公開日なら最新日）
   async function loadSst(g) {
     if (!$("sstOn").checked) return;
-    const date = analysisDate(g), my = token;
+    // 「最新日」は日付を指定せず、サーバーが公開済みの最新日を返す
+    const date = $("sstDate").value === "latest" ? "" : analysisDate(g), my = token;
     try {
       const key = `${sstSrc()}:${date}`;
       let d = sstCache.get(key);
@@ -252,7 +253,7 @@
     $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
     $("sstLegend").innerHTML = sst.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}℃</span>`).join("");
     $("sstOn").onchange = (e) => { sst.show(e.target.checked); if (e.target.checked && curGeo) loadSst(curGeo); };
-    $("sstSrc").onchange = () => { if (curGeo) loadSst(curGeo); };
+    $("sstSrc").onchange = $("sstDate").onchange = () => { if (curGeo) loadSst(curGeo); };
     $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
     $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
     $("sstStep").onchange = (e) => sst.setStep(Number(e.target.value));
