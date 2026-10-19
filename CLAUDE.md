@@ -8,6 +8,7 @@
 - インデント: JS/HTML/CSS=2、Python=4。コメントは日本語。
 
 ## 注意
+- Render公開用に `render.yaml` あり（HOST/PORT/CACHE_DIR を環境変数で切替）。無料プランはスリープ・ディスク揮発のためキャッシュは再生成前提。
 - 海保サイトへはサーバー経由のみ（BASE配下に限定）。`curl`/`wget` は使わず、確認は Python `urllib`。
 - 号一覧のHTMLは未発行分が `<!-- -->` 内。必ずコメント除去してから解析。
 - `data/cache/` はgit除外。号のGeoJSONは不変なので再取得しない。

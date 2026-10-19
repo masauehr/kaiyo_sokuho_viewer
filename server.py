@@ -5,11 +5,14 @@
   2. 海上保安庁サイトのプロキシ（ブラウザからは CORS で直接取得できないため）
   3. 海流GIS(zip: KML + DBF) → GeoJSON への変換とディスクキャッシュ
 """
+import gzip
 import io
 import json
+import os
 import re
 import struct
 import sys
+import threading
 import time
 import urllib.request
 import zipfile
@@ -21,14 +24,19 @@ from urllib.parse import urlparse
 BASE = "https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/"
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
-CACHE = ROOT / "data" / "cache"
-HOST, PORT = "127.0.0.1", 8780
+# Render等のクラウド実行時は環境変数で上書きする（HOST=0.0.0.0、PORTはRenderが設定）
+CACHE = Path(os.environ.get("CACHE_DIR", ROOT / "data" / "cache"))
+HOST = os.environ.get("HOST", "127.0.0.1")
+PORT = int(os.environ.get("PORT", "8780"))
+# 取得済みの号を保持する上限（無料プランのディスク・メモリ節約。古い順に削除）
+CACHE_MAX_FILES = int(os.environ.get("CACHE_MAX_FILES", "80"))
 UA = {"User-Agent": "kaiyo_sokuho_viewer/0.1 (personal use)"}
 
 # zip内フォルダ名 → 海流名
 REGIONS = {"k": "黒潮", "ts": "対馬暖流", "tg": "津軽暖流", "so": "宗谷暖流"}
 
 _issues_cache = {"t": 0, "v": None}
+_lock = threading.Lock()  # 同じ号への同時アクセスで海保へ重複リクエストしないための排他
 
 
 def fetch(url, timeout=40):
@@ -44,7 +52,12 @@ def list_issues():
     """GIS情報ページから号ごとのzipリンクを抽出する（コメントアウト済みの未発行分は除外）。"""
     if time.time() - _issues_cache["t"] < 600 and _issues_cache["v"]:
         return _issues_cache["v"]
-    html = fetch(BASE + "kurosio-num.html").decode("utf-8", "replace")
+    try:
+        html = fetch(BASE + "kurosio-num.html").decode("utf-8", "replace")
+    except Exception:
+        if _issues_cache["v"]:  # 海保が一時的に不調でも前回の一覧で動かす
+            return _issues_cache["v"]
+        raise
     live = re.sub(r"<!--.*?-->", "", html, flags=re.S)
     issues = []
     for year, no, label in re.findall(
@@ -124,18 +137,38 @@ def zip_to_geojson(data, key):
 def get_gis(year, no):
     key = f"{year}{no}"
     path = CACHE / f"{key}.geojson"
-    if path.exists():
-        return path.read_bytes()
-    raw = fetch(f"{BASE}{year}/shape/qboc{key}.zip")
-    body = json.dumps(zip_to_geojson(raw, key), ensure_ascii=False, separators=(",", ":")).encode()
-    path.write_bytes(body)
+    with _lock:
+        if path.exists():
+            return path.read_bytes()
+        raw = fetch(f"{BASE}{year}/shape/qboc{key}.zip")
+        body = json.dumps(zip_to_geojson(raw, key), ensure_ascii=False, separators=(",", ":")).encode()
+        path.write_bytes(body)
+        prune_cache()
     return body
+
+
+def prune_cache():
+    """キャッシュが上限を超えたら古いファイルから削除する。"""
+    files = sorted(CACHE.glob("*.*"), key=lambda f: f.stat().st_mtime)
+    for f in files[:max(0, len(files) - CACHE_MAX_FILES)]:
+        f.unlink(missing_ok=True)
+
+
+def warm_up():
+    """起動直後に最新号を先に取得しておく（初回アクセスを速くする）。"""
+    try:
+        last = list_issues()["issues"][-1]
+        get_gis(str(last["year"]), f"{last['no']:03d}")
+    except Exception as e:
+        sys.stderr.write(f"ウォームアップ失敗: {e}\n")
 
 
 def get_image(year, no):
     path = CACHE / f"{year}{no}cu0.png"
-    if not path.exists():
-        path.write_bytes(fetch(f"{BASE}{year}/qboc{year}{no}cu0.png"))
+    with _lock:
+        if not path.exists():
+            path.write_bytes(fetch(f"{BASE}{year}/qboc{year}{no}cu0.png"))
+            prune_cache()
     return path.read_bytes()
 
 
@@ -143,9 +176,17 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=str(WEB), **k)
 
-    def _send(self, body, ctype, status=200):
+    def _send(self, body, ctype, status=200, max_age=0):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
+        # JSONは圧縮して転送量を減らす（1号 0.5〜1.5MB）
+        if ctype.startswith("application/json") and len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = gzip.compress(body, 6)
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Vary", "Accept-Encoding")
+        if max_age:
+            self.send_header("Cache-Control", f"public, max-age={max_age}")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -153,14 +194,16 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         p = urlparse(self.path).path
         try:
+            if p == "/healthz":
+                return self._send(b"ok", "text/plain")
             if p == "/api/issues":
-                return self._send(json.dumps(list_issues(), ensure_ascii=False).encode(), "application/json; charset=utf-8")
+                return self._send(json.dumps(list_issues(), ensure_ascii=False).encode(), "application/json; charset=utf-8", max_age=300)
             m = re.fullmatch(r"/api/gis/(20\d\d)/(\d{3})", p)
             if m:
-                return self._send(get_gis(*m.groups()), "application/json; charset=utf-8")
+                return self._send(get_gis(*m.groups()), "application/json; charset=utf-8", max_age=86400)
             m = re.fullmatch(r"/api/image/(20\d\d)/(\d{3})", p)
             if m:
-                return self._send(get_image(*m.groups()), "image/png")
+                return self._send(get_image(*m.groups()), "image/png", max_age=86400)
         except Exception as e:  # 取得失敗は 502 で返す
             return self._send(json.dumps({"error": str(e)}, ensure_ascii=False).encode(), "application/json; charset=utf-8", 502)
         return super().do_GET()
@@ -171,5 +214,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     CACHE.mkdir(parents=True, exist_ok=True)
+    threading.Thread(target=warm_up, daemon=True).start()
     print(f"http://{HOST}:{PORT}/ で起動しました (Ctrl+C で終了)")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

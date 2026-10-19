@@ -1,0 +1,20 @@
+# Render のブループリント（Web Service・無料プラン）
+# 標準ライブラリのみのためビルドで入れるものは無い。
+# 認証なしの公開アプリ（海保の公開データのみ・個人情報なし）。
+services:
+  - type: web
+    name: kaiyo-sokuho-viewer
+    runtime: python
+    plan: free
+    buildCommand: "echo no dependencies"
+    startCommand: "python3 server.py"
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: CACHE_DIR
+        value: /tmp/kaiyo_cache   # 無料プランのディスクは再起動で消える（起動時に最新号を再取得）
+      - key: CACHE_MAX_FILES
+        value: "80"
+      - key: PYTHON_VERSION
+        value: "3.12"
