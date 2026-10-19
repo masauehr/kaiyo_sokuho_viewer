@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海洋速報 海流図ビューア</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <aside id="panel">
+    <h1>海洋速報 海流図</h1>
+    <p class="sub">出典：海上保安庁 海洋情報部</p>
+
+    <section>
+      <h2>号の選択</h2>
+      <div class="row">
+        <button id="prev" title="前の号">◀</button>
+        <select id="issueSelect"></select>
+        <button id="next" title="次の号">▶</button>
+      </div>
+      <input type="range" id="slider" min="0" max="0" value="0">
+      <div class="row">
+        <button id="play">▶ 再生</button>
+        <select id="speed">
+          <option value="1200">ゆっくり</option>
+          <option value="600" selected>ふつう</option>
+          <option value="250">はやい</option>
+        </select>
+        <button id="latest">最新号</button>
+      </div>
+      <div id="meta" class="meta"></div>
+    </section>
+
+    <section>
+      <h2>表示する海流</h2>
+      <div id="regions"></div>
+    </section>
+
+    <section>
+      <h2>比較（重ね描き）</h2>
+      <label class="row"><input type="checkbox" id="ghostOn"> 過去の号を重ねる</label>
+      <div class="row">
+        <select id="ghostBack">
+          <option value="1">1号前</option>
+          <option value="5" selected>5号前（約1週間）</option>
+          <option value="20">20号前（約1か月）</option>
+          <option value="60">60号前（約3か月）</option>
+          <option value="120">120号前（約半年）</option>
+        </select>
+      </div>
+      <p class="note">過去号は灰色の破線で表示します。黒潮の蛇行や接岸の変化を比べられます。</p>
+    </section>
+
+    <section>
+      <h2>流軸の通過緯度（黒潮）</h2>
+      <div id="axisTable" class="axis"></div>
+      <p class="note">東経ごとに黒潮の流線が通る緯度を、表示中の号から計算します。</p>
+    </section>
+
+    <section>
+      <h2>地図の操作</h2>
+      <div class="row">
+        <select id="basemap">
+          <option value="pale">地理院 淡色</option>
+          <option value="std">地理院 標準</option>
+          <option value="photo">地理院 写真</option>
+          <option value="blank">白地図</option>
+        </select>
+      </div>
+      <label class="row"><input type="checkbox" id="imgOn"> 公式の海流図(画像)を別枠で表示</label>
+      <div class="row">
+        <button id="dlGeo">GeoJSON保存</button>
+        <button id="fit">全体表示</button>
+      </div>
+      <p class="note">地図をクリックすると、その地点から最寄りの黒潮までの距離と方位を表示します。</p>
+    </section>
+
+    <p class="foot">流線は概位で、1〜2マイルの誤差を含むことがあります。渦などは表現されません。航行の安全確保には公式の海洋速報をご確認ください。</p>
+  </aside>
+  <main id="map"></main>
+  <div id="imgBox" hidden><img id="officialImg" alt="公式海流図"></div>
+  <div id="toast" hidden></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
