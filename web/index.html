@@ -81,6 +81,24 @@
     </section>
 
     <section>
+      <h2>波高（実況・予想）</h2>
+      <label class="row"><input type="checkbox" id="waveOn"> 有義波高を重ねる</label>
+      <div class="row">
+        <button id="wavePrev" title="3時間前">◀</button>
+        <input type="range" id="waveSlider" min="0" max="0" value="0">
+        <button id="waveNext" title="3時間後">▶</button>
+      </div>
+      <div class="row">
+        <button id="wavePlay">▶ 再生</button>
+        <button id="waveNow">現在</button>
+      </div>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="waveOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
+      <div id="waveLegend" class="legend"></div>
+      <div id="waveMeta" class="meta"></div>
+      <p class="note">Open-Meteo Marine API（DWD などの波浪モデル）の有義波高を2度格子に間引いたものです。過去約3日は解析値（実況相当）、それ以降は約5日先までの予想で、3時間ごとに切り替えられます。<b>気象庁の波浪図とは別のデータ</b>で、沿岸や湾内の波高は粗く表されます。</p>
+    </section>
+
+    <section>
       <h2>流れ場（参考・モデル外）</h2>
       <label class="row"><input type="checkbox" id="flowOn"> 表層の流れを粒子で表示</label>
       <div id="flowLegend" class="legend"></div>
@@ -122,6 +140,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/flow.js"></script>
   <script src="js/sst.js"></script>
+  <script src="js/wave.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
