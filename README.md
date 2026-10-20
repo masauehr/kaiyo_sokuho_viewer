@@ -4,7 +4,8 @@
 
 海上保安庁 海洋情報部の「海洋速報」の**海流GIS情報**（shape/KML）を取得し、黒潮・対馬暖流・津軽暖流・宗谷暖流の流線を地図上に表示するWebアプリです。
 
-- 公開版: https://kaiyo-sokuho-viewer.onrender.com/（Render無料プラン。スリープ復帰に30〜60秒かかる場合あり）
+- 公開版: https://kaiyo-sokuho-viewer.onrender.com/
+（Render無料プラン。スリープ復帰に30〜60秒かかる場合あり）
 - 出典: [海上保安庁 海洋情報部 海洋速報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/) ／ [流軸数値・GIS情報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html)
 - 水温は気象庁 MGDSST（既定）またはNOAA、流れ場は NOAA CoastWatch / AVISO+ の表層地衡流（海保とは別データ）。海底地形は GEBCO（航行・安全用途には使用不可）。
 - 流線は概位で、1〜2マイルの誤差を含みます。**航行の安全確保には公式の海洋速報を確認してください。**
