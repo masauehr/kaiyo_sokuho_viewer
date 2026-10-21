@@ -56,3 +56,14 @@
 | 海底地形（背景） | GEBCO WMS `https://wms.gebco.net/mapserv`、レイヤー `GEBCO_LATEST_2`。注意書き「航行・安全用途には使用不可」。出典: GEBCO Compilation Group |
 | 海洋図（背景） | Esri `World_Ocean_Base` ＋ `World_Ocean_Reference` タイル。出典表記必須 |
 | 水深の点取得 | GEBCO WMS GetFeatureInfo（`value_list` が標高m、海は負）。0.2度四方・100pxで中央を問い合わせる（狭いと空返し） |
+
+## 波高（海保以外・参考。2026-10-21 調査）
+| 項目 | 内容 |
+|---|---|
+| 数値（既定）Open-Meteo Marine | `https://marine-api.open-meteo.com/v1/marine?latitude=..,..&longitude=..,..&hourly=wave_height&past_days=3&forecast_days=5&timezone=UTC`。複数地点はカンマ区切り（100地点ずつ）。JSONは地点ごとのリスト。非商用は無料・キー不要。出典: Open-Meteo（DWD等の波浪モデル） |
+| 呼び出し制限 | 無料枠は1分600・1時間5000・1日10000呼び出し相当で、地点数に比例して消費。1度格子（1,476地点）は429になったため2度格子（約400地点）、429は65秒待って再試行、6時間キャッシュ |
+| 気象庁 波浪実況・予想図（タイル） | 設定 `https://www.data.jma.go.jp/waveinf/tile/jp/table/umimesh.properties.xml`、時刻一覧 `https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/targetTimes.json`（`basetime`/`validtime` はUTC14桁）、タイル `.../wavemesh/{basetime}/none/{validtime}/surf/{wavh\|windsea\|swell}/{z}/{x}/{y}.png`（z=3〜7、XYZ、PNG）。6時間ごと・過去の解析〜約2日先。凡例: 0/1/2/3/4/6/9m〜 |
+| 気象庁 沿岸波浪実況・予想図（53海域） | `https://www.data.jma.go.jp/waveinf/tile/jp/index_guid.html`。海域ごとの最大波高・周期、過去72時間〜未来72時間を3時間ごと、1日4回更新、時系列CSVあり。**未対応**（CSVのURL規則は未調査） |
+| 気象庁 波浪GPV | 気象業務支援センター配信（有償）のため公開サーバーでは使えない |
+| 旧「外洋/沿岸波浪図」画像 | `www.data.jma.go.jp/gmd/kaiyou/db/wave/comment/chart/image/{ocean/s_awpn,ocean/s_fwpn,coast/s_awjp,coast/s_fwjp}.png`。外洋は最終更新が2019年のため不採用 |
+| NOAA WW3（保留） | ERDDAP `https://upwell.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best`（変数 `Thgt`、0.5度・1時間、過去〜約5日先、経度は0〜360表記）。時刻・取得の動作は確認済みだが、2026-10-20〜21にサーバーへ接続できず不採用。復旧すれば0.5度版へ戻せる。`ww3_global` は取得が404になった |
