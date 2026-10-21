@@ -40,7 +40,7 @@ SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
 SST_AREA = "[(15):3:(50)][(115):3:(160)]"
 # 気象庁 波浪実況・予想図（地図タイル。時刻一覧 targetTimes.json と {基準}/none/{対象}/surf/wavh/{z}/{x}/{y}.png）
 JMA_WAVE_BASE = "https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/"
-JMA_TILE_MAX = 800  # メモリに保持するタイル数の上限（1枚30KB前後）
+JMA_TILE_MAX = 2000  # メモリに保持するタイル数の上限（1枚30KB前後。全コマ先読みで13コマ分を保持するため多め）
 # 気象庁 MGDSST（全球日別海面水温 0.25度。前日の値まで公開。数値はgz圧縮テキスト）
 JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）

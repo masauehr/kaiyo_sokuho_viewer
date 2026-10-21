@@ -35,7 +35,8 @@
   const flowCache = new Map();
   const sst = SstLayer(map), sstCache = new Map();
   map.createPane("jwave").style.zIndex = 258; // 気象庁の波浪図タイル（水温250・波高255の上、流線400の下）
-  let jwTimes = null, jwIdx = 0, jwTimer = null, jwLayer = null;
+  let jwTimes = null, jwIdx = 0, jwTimer = null, jwToken = 0;
+  const jwFrames = new Map(); // 「要素/基準/対象」→ タイルレイヤー（全コマを透明で重ねておき、表示は不透明度の切り替えだけ）
   const sstSrc = () => $("sstSrc").value;
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
@@ -184,26 +185,63 @@
   // 気象庁の波浪図: 14桁UTC(yyyyMMddHHmmss)を日本時間の表示にする
   const jwJst = (t) => jst(`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}T${t.slice(8, 10)}`);
 
+  const jwNowIdx = () => Math.max(0, jwTimes.reduce((m, t, k) => (t.basetime === t.validtime ? k : m), 0));
+
+  // 1コマ分のレイヤー（なければ透明で作って地図に載せ、タイルの先読みを始める）
+  function jwFrame(t) {
+    const key = `${$("jwEl").value}/${t.basetime}/${t.validtime}`;
+    let l = jwFrames.get(key);
+    if (!l) {
+      l = L.tileLayer(`/api/jmawave/${t.basetime}/${t.validtime}/${$("jwEl").value}/{z}/{x}/{y}.png`,
+        { pane: "jwave", minZoom: 3, maxZoom: 12, maxNativeZoom: 7, opacity: 0, keepBuffer: 1 }).addTo(map);
+      jwFrames.set(key, l);
+    }
+    return l;
+  }
+
+  // 全コマを消す（要素の切り替え・非表示時）
+  function jwClear() {
+    for (const l of jwFrames.values()) map.removeLayer(l);
+    jwFrames.clear();
+  }
+
+  // タイルの読み込み完了を待つ（15秒で打ち切り）
+  const jwLoaded = (l) => new Promise((res) => {
+    if (!l._loading) return res();
+    const h = setTimeout(res, 15000);
+    l.once("load", () => { clearTimeout(h); res(); });
+  });
+
   async function loadJw(i) {
     if (!$("jwOn").checked) return;
+    const my = ++jwToken;
     try {
       if (!jwTimes) {
         const r = await fetch("/api/jmawave/times");
         if (!r.ok) throw new Error("気象庁の波浪図の時刻一覧の取得に失敗しました");
         jwTimes = (await r.json()).sort((a, b) => a.validtime.localeCompare(b.validtime));
         $("jwSlider").max = jwTimes.length - 1;
-        // 「現在」= 解析値（基準時刻=対象時刻）のうち最新
-        jwIdx = Math.max(0, jwTimes.reduce((m, t, k) => (t.basetime === t.validtime ? k : m), 0));
+        jwIdx = jwNowIdx(); // 「現在」= 解析値（基準時刻=対象時刻）のうち最新
       }
       if (i !== undefined) jwIdx = Math.max(0, Math.min(jwTimes.length - 1, i));
       $("jwSlider").value = jwIdx;
-      const t = jwTimes[jwIdx];
-      if (jwLayer) map.removeLayer(jwLayer);
-      jwLayer = L.tileLayer(`/api/jmawave/${t.basetime}/${t.validtime}/${$("jwEl").value}/{z}/{x}/{y}.png`,
-        { pane: "jwave", minZoom: 3, maxZoom: 12, maxNativeZoom: 7, opacity: Number($("jwOpacity").value) }).addTo(map);
+      const t = jwTimes[jwIdx], cur = jwFrame(t);
+      await jwLoaded(cur); // 読み込み済みなら即座に切り替わる（前のコマは読み込み完了まで残す）
+      if (my !== jwToken) return;
+      const o = Number($("jwOpacity").value);
+      for (const l of jwFrames.values()) l.setOpacity(l === cur ? o : 0);
       const fc = t.basetime !== t.validtime;
       $("jwMeta").textContent = `${jwJst(t.validtime)}　${fc ? `予想（${jwJst(t.basetime)}の解析に基づく）` : "実況（解析）"}　気象庁`;
     } catch (e) { toast(e.message); }
+  }
+
+  // 再生前に全コマを先読みする（読み込み中は進み具合を表示）
+  async function jwPreload() {
+    let n = 0;
+    $("jwMeta").textContent = `全コマを読み込み中… 0/${jwTimes.length}`;
+    await Promise.all(jwTimes.map((t) => jwLoaded(jwFrame(t)).then(() => {
+      $("jwMeta").textContent = `全コマを読み込み中… ${++n}/${jwTimes.length}`;
+    })));
   }
 
   function jwStop() { clearInterval(jwTimer); jwTimer = null; $("jwPlay").textContent = "▶ 再生"; }
@@ -298,26 +336,31 @@
       .map(([c, v]) => `<span><i style="background:${c}"></i>${v}</span>`).join("");
     $("jwOn").onchange = (e) => {
       if (e.target.checked) loadJw();
-      else { jwStop(); if (jwLayer) { map.removeLayer(jwLayer); jwLayer = null; } }
+      else { jwStop(); jwToken++; jwClear(); }
     };
-    $("jwEl").onchange = () => loadJw();
+    $("jwEl").onchange = () => { jwStop(); jwClear(); loadJw(); };
     $("jwSlider").oninput = (e) => { jwStop(); loadJw(Number(e.target.value)); };
     $("jwPrev").onclick = () => { jwStop(); loadJw(jwIdx - 1); };
     $("jwNext").onclick = () => { jwStop(); loadJw(jwIdx + 1); };
     $("jwNow").onclick = () => {
       jwStop();
-      if (jwTimes) loadJw(Math.max(0, jwTimes.reduce((m, t, k) => (t.basetime === t.validtime ? k : m), 0)));
+      if (jwTimes) loadJw(jwNowIdx());
     };
-    $("jwPlay").onclick = () => {
+    $("jwPlay").onclick = async () => {
       if (jwTimer) return jwStop();
       if (!jwTimes) return;
       $("jwPlay").textContent = "■ 停止";
+      const start = jwIdx >= jwTimes.length - 1 ? 0 : jwIdx; // 最後のコマなら先頭から
+      jwTimer = -1; // 先読み中も「再生中」として停止ボタンを効かせる
+      await jwPreload();
+      if (jwTimer !== -1) return; // 先読み中に停止された
+      await loadJw(start);
       jwTimer = setInterval(() => {
         if (jwIdx >= jwTimes.length - 1) return jwStop();
         loadJw(jwIdx + 1);
-      }, 1000);
+      }, 700);
     };
-    $("jwOpacity").oninput = (e) => { if (jwLayer) jwLayer.setOpacity(Number(e.target.value)); };
+    $("jwOpacity").oninput = () => { if (jwTimes) loadJw(jwIdx); };
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;

@@ -25,7 +25,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 表示する海流 | 黒潮（赤）・対馬（橙）・津軽（青）・宗谷（緑）の表示切替 |
 | 比較（重ね描き） | 1・5・20・60・120号前の流線を灰色破線で重ねる（蛇行・接岸の変化比較） |
 | 海面水温 | 出典（気象庁MGDSST／NOAA）切替・日付（海流図の解析日に合わせる／最新日）・濃さ・等温線（2℃／1℃ごとを選択、℃ラベル付き） |
-| 気象庁の波浪図 | 気象庁「波浪実況・予想図」のタイルを重ねる。要素（波の高さ／風浪／うねり）・時刻スライダー（6時間ごと・過去の解析〜約2日先）・▶再生・「現在」（最新の解析）・濃さ。等波高線付き。 |
+| 気象庁の波浪図 | 気象庁「波浪実況・予想図」のタイルを重ねる。要素（波の高さ／風浪／うねり）・時刻スライダー（6時間ごと・過去の解析〜約2日先）・▶再生（押すと全コマを先読みしてから、不透明度の切り替えだけで再生するため途切れない）・「現在」（最新の解析）・濃さ。等波高線付き。 |
 | 流れ場（参考） | NOAA表層地衡流の粒子アニメ。色は流速（0〜1.5m/s〜） |
 | 流軸の通過緯度 | 東経125〜143度（2度刻み）で黒潮が通る緯度（表示中の号から計算） |
 | 地図の操作 | 背景地図切替／公式海流図(PNG)を別枠表示／GeoJSON保存／全体表示 |
@@ -45,7 +45,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 海面水温（既定） | 気象庁 MGDSST | `.../gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/YYYY/mgd_sst_glb_DYYYYMMDD.txt.gz` | 日別・0.25度・前日の値まで公開 | 気象庁 |
 | 海面水温（切替） | NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily` | griddap CSV（0.15度に間引き） | 日別・2〜4日前の値まで公開 | NOAA CoastWatch |
 | 流れ場（参考） | NOAA CoastWatch ERDDAP `noaacwBLENDEDNRTcurrentsDaily` | griddap CSV | 日別・0.25度・約2日前の値まで公開。地衡流のみ | NOAA CoastWatch / AVISO+ |
-| 波浪図（気象庁） | 気象庁 波浪実況・予想図 `www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/`（`targetTimes.json` と `{基準}/none/{対象}/surf/{wavh\|windsea\|swell}/{z}/{x}/{y}.png`、z=3〜7） | `/api/jmawave/...` が中継（時刻は一覧にあるものだけ許可、タイルはメモリ800枚保持） | 6時間ごと・約3日前の解析〜約2日先の予想 | 気象庁 |
+| 波浪図（気象庁） | 気象庁 波浪実況・予想図 `www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/`（`targetTimes.json` と `{基準}/none/{対象}/surf/{wavh\|windsea\|swell}/{z}/{x}/{y}.png`、z=3〜7） | `/api/jmawave/...` が中継（時刻は一覧にあるものだけ許可、タイルはメモリ2000枚保持） | 6時間ごと・約3日前の解析〜約2日先の予想 | 気象庁 |
 | 海底地形（背景） | GEBCO WMS `GEBCO_LATEST_2` | Leaflet WMS | 15秒格子 | GEBCO Compilation Group（航行・安全用途不可） |
 | 海洋図（背景） | Esri World_Ocean_Base/Reference | タイル | - | Esri ほか |
 | 水深（地点） | GEBCO GetFeatureInfo | `/api/depth` が中継 | - | GEBCO |
@@ -127,6 +127,7 @@ kaiyo_sokuho_viewer/
 
 | 日付 | 版 | 内容 |
 |---|---|---|
+| 2026-10-21 | v0.6 | 気象庁の波浪図の再生を滑らかに。コマ送りのたびにレイヤーを作り直して空白が出ていたため、全コマ（13枚）を透明で重ねて先読みし、再生は不透明度の切り替えのみに変更（再生中のタイル要求は0）。サーバーのタイル保持数を2000枚へ |
 | 2026-10-21 | v0.5 | 波高の数値レイヤー（Open-Meteo Marine）を削除。波高は気象庁の波浪図のみ（地図クリックの波高表示も削除） |
 | 2026-10-21 | v0.4 | 気象庁の波浪図（波浪実況・予想図のタイル）を追加。波の高さ／風浪／うねり、時刻スライダー、再生 |
 | 2026-10-21 | v0.3 | 波高レイヤー（実況・予想）を追加（Open-Meteo Marine・2度格子）。※v0.5で削除 |
