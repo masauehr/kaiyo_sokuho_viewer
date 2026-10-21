@@ -40,9 +40,14 @@
   const looksLikePhone = () => matchMedia("(max-width: 720px)").matches || matchMedia("(pointer: coarse) and (max-width: 900px)").matches;
   let layout = store.get("kaiyo_layout") || (looksLikePhone() ? "mobile" : "pc");
   let timeStyle = store.get("kaiyo_timestyle"); // 未選択ならモードに合わせる（スマホ=小、パソコン=大）
-  let tab = store.get("kaiyo_tab") || "wave", sheetOpen = true;
+  let tab = "wave", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
   let sheetSize = store.get("kaiyo_sheet") || "s"; // スマホ用メニューの高さ（地図を広く見るため既定は小）
   const SHEET_VH = { s: 26, m: 36, l: 50 };
+  // スマホ用: タブ＝見たい図。タブを切り替えたら、そのタブの図を表示し、前のタブの図は消す（設定でオフにすると重ねて使える）
+  let autoSwitch = store.get("kaiyo_autoswitch") !== "0";
+  const TAB_LAYER = { wave: "jwOn", temp: "stOn", current: "currentOn" };
+  let layerTab = "wave"; // 直近に開いた「図のあるタブ」（地図・設定タブを挟んでも前の図を正しく消すため）
+  const setChecked = (id, on) => { const c = $(id); if (c.checked !== on) { c.checked = on; c.dispatchEvent(new Event("change")); } };
 
   function applyLayout() {
     const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
@@ -51,7 +56,7 @@
     document.body.classList.toggle("sheet-closed", mobile && !sheetOpen);
     document.body.dataset.tab = tab;
     $("timeBox").classList.toggle("compact", ts === "compact");
-    $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize;
+    $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize; $("autoSwitch").checked = autoSwitch;
     document.documentElement.style.setProperty("--sheet-max", `${SHEET_VH[sheetSize]}vh`);
     $("layoutBtn").textContent = mobile ? "パソコン用表示" : "スマホ用表示";
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", sheetOpen && b.dataset.t === tab));
@@ -62,11 +67,24 @@
   const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); applyLayout(); };
   $("layoutMode").onchange = (e) => setLayout(e.target.value);
   $("layoutBtn").onclick = () => setLayout(layout === "mobile" ? "pc" : "mobile");
+  $("autoSwitch").onchange = (e) => { autoSwitch = e.target.checked; store.set("kaiyo_autoswitch", autoSwitch ? "1" : "0"); };
   $("sheetSize").onchange = (e) => { sheetSize = e.target.value; store.set("kaiyo_sheet", sheetSize); applyLayout(); };
   $("timeStyle").onchange = (e) => { timeStyle = e.target.value; store.set("kaiyo_timestyle", timeStyle); applyLayout(); };
   document.querySelectorAll("#tabs button").forEach((b) => {
     b.onclick = () => { // 開いているタブをもう一度押すとメニューを閉じて地図を広く見られる
-      if (tab === b.dataset.t && sheetOpen) sheetOpen = false; else { tab = b.dataset.t; sheetOpen = true; store.set("kaiyo_tab", tab); }
+      const prev = tab, next = b.dataset.t;
+      if (prev === next && sheetOpen) sheetOpen = false;
+      else {
+        tab = next; sheetOpen = true;
+        $("panelBody").scrollTop = 0; // 前のタブのスクロール位置を引き継がない（内容が隠れて同じに見えるのを防ぐ）
+        if (TAB_LAYER[next]) {
+          if (autoSwitch && layerTab !== next) {
+            setChecked(TAB_LAYER[layerTab], false);
+            setChecked(TAB_LAYER[next], true);
+          }
+          layerTab = next;
+        }
+      }
       applyLayout();
     };
   });
