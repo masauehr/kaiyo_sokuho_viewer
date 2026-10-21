@@ -41,6 +41,8 @@
   let layout = store.get("kaiyo_layout") || (looksLikePhone() ? "mobile" : "pc");
   let timeStyle = store.get("kaiyo_timestyle"); // 未選択ならモードに合わせる（スマホ=小、パソコン=大）
   let tab = store.get("kaiyo_tab") || "wave", sheetOpen = true;
+  let sheetSize = store.get("kaiyo_sheet") || "s"; // スマホ用メニューの高さ（地図を広く見るため既定は小）
+  const SHEET_VH = { s: 26, m: 36, l: 50 };
 
   function applyLayout() {
     const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
@@ -49,7 +51,8 @@
     document.body.classList.toggle("sheet-closed", mobile && !sheetOpen);
     document.body.dataset.tab = tab;
     $("timeBox").classList.toggle("compact", ts === "compact");
-    $("layoutMode").value = layout; $("timeStyle").value = ts;
+    $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize;
+    document.documentElement.style.setProperty("--sheet-max", `${SHEET_VH[sheetSize]}vh`);
     $("layoutBtn").textContent = mobile ? "パソコン用表示" : "スマホ用表示";
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", sheetOpen && b.dataset.t === tab));
     // 下のメニューの高さ分だけ地図の出典表示を持ち上げる
@@ -59,6 +62,7 @@
   const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); applyLayout(); };
   $("layoutMode").onchange = (e) => setLayout(e.target.value);
   $("layoutBtn").onclick = () => setLayout(layout === "mobile" ? "pc" : "mobile");
+  $("sheetSize").onchange = (e) => { sheetSize = e.target.value; store.set("kaiyo_sheet", sheetSize); applyLayout(); };
   $("timeStyle").onchange = (e) => { timeStyle = e.target.value; store.set("kaiyo_timestyle", timeStyle); applyLayout(); };
   document.querySelectorAll("#tabs button").forEach((b) => {
     b.onclick = () => { // 開いているタブをもう一度押すとメニューを閉じて地図を広く見られる

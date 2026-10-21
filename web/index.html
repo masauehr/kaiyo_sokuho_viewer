@@ -23,8 +23,7 @@
 
     <section data-tab="wave">
       <h2>気象庁の波浪図（実況・予想）</h2>
-      <label class="row"><input type="checkbox" id="jwOn" checked> 気象庁の波浪図を重ねる</label>
-      <div class="row">
+      <div class="row"><label class="chk"><input type="checkbox" id="jwOn" checked> 重ねる</label>
         <select id="jwEl">
           <option value="wavh">波の高さ</option>
           <option value="wind">波と風</option>
@@ -42,8 +41,8 @@
       <div class="row">
         <button id="jwPlay">▶ 再生</button>
         <button id="jwNow">現在</button>
+        <span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75">
       </div>
-      <div class="row"><span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
       <div id="jwLegend" class="legend"></div>
       <div id="jwMeta" class="meta"></div>
       <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
@@ -51,8 +50,7 @@
 
     <section data-tab="temp">
       <h2>海面水温・表層水温・海流</h2>
-      <label class="row"><input type="checkbox" id="stOn"> 気象庁の水温・海流図を重ねる</label>
-      <div class="row">
+      <div class="row"><label class="chk"><input type="checkbox" id="stOn"> 重ねる</label>
         <select id="stEl">
           <optgroup label="海面水温">
             <option value="sst">海面水温（実況）</option>
@@ -82,8 +80,8 @@
       <div class="row">
         <button id="stPlay">▶ 再生</button>
         <button id="stNow">現在</button>
+        <span class="note">濃さ</span><input type="range" id="stOpacity" min="0.2" max="1" step="0.05" value="0.75">
       </div>
-      <div class="row"><span class="note">濃さ</span><input type="range" id="stOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
       <div id="stLegend" class="legend"></div>
       <div id="stMeta" class="meta"></div>
       <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。画像のため、地図クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
@@ -167,6 +165,8 @@
       <h2>表示設定</h2>
       <div class="row"><span class="note">画面</span>
         <select id="layoutMode"><option value="pc">パソコン用</option><option value="mobile">スマホ用</option></select></div>
+      <div class="row"><span class="note">メニュー高さ</span>
+        <select id="sheetSize"><option value="s">小（画面の1/4）</option><option value="m">中（約1/3）</option><option value="l">大（約1/2）</option></select></div>
       <div class="row"><span class="note">日時表示</span>
         <select id="timeStyle"><option value="large">大（中央）</option><option value="compact">小（上部に横長）</option></select></div>
       <p class="note">「スマホ用」は地図を全面に出し、メニューを下からのタブ式にします。選んだ設定はこの端末に保存されます。</p>

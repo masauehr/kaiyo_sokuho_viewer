@@ -58,11 +58,11 @@ body.compact-time:not(.mobile) #toast { top:42px; }
 body.mobile { display:block; }
 /* Leaflet が生成時に position:relative をインラインで付けるため !important が必要 */
 body.mobile #map { position:fixed !important; inset:0; }
-body.mobile #panel { position:fixed; left:0; right:0; bottom:0; width:auto; max-height:48vh; z-index:1100; display:flex; flex-direction:column; overflow:hidden;
+body.mobile #panel { position:fixed; left:0; right:0; bottom:0; width:auto; max-height:var(--sheet-max, 34vh); z-index:1100; display:flex; flex-direction:column; overflow:hidden;
   padding:0 12px env(safe-area-inset-bottom); border:1px solid var(--line); border-radius:14px 14px 0 0; box-shadow:0 -2px 12px #0004; }
 body.mobile #head { display:none; }
-body.mobile #tabs { display:flex; gap:6px; flex:none; padding:8px 0; }
-body.mobile #tabs button { flex:1; padding:8px 2px; font-size:13px; font-weight:600; min-height:42px; }
+body.mobile #tabs { display:flex; gap:4px; flex:none; padding:6px 0; }
+body.mobile #tabs button { flex:1; padding:4px 2px; font-size:13px; font-weight:600; min-height:36px; }
 body.mobile #tabs button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 body.mobile #panelBody { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:10px; }
 body.mobile.sheet-closed #panelBody { display:none; }
@@ -72,16 +72,26 @@ body.mobile[data-tab="temp"] #panelBody [data-tab="temp"],
 body.mobile[data-tab="current"] #panelBody [data-tab="current"],
 body.mobile[data-tab="map"] #panelBody [data-tab="map"] { display:block; }
 body.mobile #panelBody [hidden] { display:none !important; }
-body.mobile button, body.mobile select { min-height:42px; font-size:16px; }
-body.mobile .row { margin:8px 0; gap:8px; }
+body.mobile button, body.mobile select { min-height:38px; font-size:16px; }
+body.mobile .row { margin:4px 0; gap:6px; }
 body.mobile .row button { min-width:44px; }
-body.mobile input[type=range] { height:34px; }
+body.mobile input[type=range] { height:30px; }
 body.mobile input[type=checkbox] { width:22px; height:22px; flex:none; }
 body.mobile label.row { font-size:15px; }
-body.mobile .note, body.mobile .foot { font-size:12px; }
-body.mobile .meta { font-size:13px; }
-body.mobile .legend { font-size:12px; }
+body.mobile p.note, body.mobile .foot { display:none; } /* 長い説明文はスマホでは省いて表示領域を確保 */
+body.mobile span.note { font-size:12px; white-space:nowrap; }
+body.mobile section { margin-bottom:8px; padding-bottom:6px; }
+body.mobile h2 { margin-bottom:2px; }
+body.mobile .meta { font-size:12px; line-height:1.4; }
+body.mobile .legend { font-size:11px; margin:2px 0; }
 body.mobile .leaflet-control-zoom { display:none; }
 body.mobile #toast { left:8px; right:8px; top:8px; }
 body.mobile.compact-time #toast { top:36px; }
 body.mobile #imgBox { top:36px; right:8px; bottom:auto; width:58vw; }
+label.chk { display:flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; }
+/* スマホ: タブ名と同じ見出しは省いて表示領域を確保 */
+body.mobile[data-tab="wave"] section[data-tab="wave"] > h2,
+body.mobile[data-tab="temp"] section[data-tab="temp"] > h2,
+body.mobile[data-tab="current"] section[data-tab="current"] > h2 { display:none; }
+.row button { flex:none; white-space:nowrap; }
+.row input[type=range] { flex:1; min-width:60px; width:auto; }
