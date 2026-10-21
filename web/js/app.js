@@ -31,8 +31,6 @@
   let curLayer = null, ghostLayer = null, clickLayer = null, curGeo = null, token = 0;
 
   const map = L.map("map", { zoomControl: true }).setView([32, 137], 5);
-  const flow = FlowLayer(map);
-  const flowCache = new Map();
   // 気象庁の画像タイル: 波浪図（既定の表示）と、海面水温・表層水温・海流の図
   const JW = "https://www.data.jma.go.jp/waveinf/tile/jp/images/rect_", JK = "https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_";
   const lg = (base, rows) => rows.map(([n, v]) => [`${base}${n}.svg`, v]);
@@ -166,33 +164,7 @@
       $("meta").textContent = `${m.issueNo || issue.label}　発行 ${m.issueDate || ""}　解析対象 ${m.analysisDate || ""}`;
       renderAxis(g);
       if ($("imgOn").checked) setImage();
-      loadFlow(g);
     } catch (e) { toast(e.message); stop(); }
-  }
-
-  // 和暦併記の日付（例: R8(2026)/10/15）→ YYYY-MM-DD。key は meta のキー（analysisDate / issueDate）
-  function metaDate(g, key) {
-    const m = (g.meta && g.meta[key] || "").match(/\((\d{4})\)\/(\d+)\/(\d+)/);
-    return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : "";
-  }
-  const analysisDate = (g) => metaDate(g, "analysisDate"); // 解析対象日（海流図データの基準日。発行日の前日）
-
-  // 表示中の号の解析対象日に合わせて流れ場を読み込む（最新日より後なら最新日になる）
-  async function loadFlow(g) {
-    if (!$("flowOn").checked) return;
-    const date = analysisDate(g), my = token;
-    try {
-      let d = flowCache.get(date);
-      if (!d) {
-        const res = await fetch(`/api/flow${date ? "/" + date : ""}`);
-        if (!res.ok) throw new Error("流れ場の取得に失敗しました");
-        d = await res.json();
-        flowCache.set(date, d);
-      }
-      if (my !== token) return;
-      flow.setData(d);
-      $("flowMeta").textContent = `流れ場の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
-    } catch (e) { toast(e.message); }
   }
 
   function setImage() {
@@ -245,10 +217,8 @@
       L.circleMarker(e.latlng, { radius: 5, color: "#000", fillOpacity: 1 }),
       ...(r ? [L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" })] : []),
     ]).addTo(map);
-    const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
     const msg = [
       r ? `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` : `北緯${e.latlng.lat.toFixed(2)}度 東経${e.latlng.lng.toFixed(2)}度`,
-      f ? `流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : null,
     ].filter(Boolean).join("／");
     toast(msg, 8000);
     // 水深は外部(GEBCO)への問い合わせのため、取得できたら追記して再表示する
@@ -274,8 +244,6 @@
     $("ghostOn").onchange = $("ghostBack").onchange = () => show(idx);
     $("basemap").onchange = (e) => setBasemap(e.target.value);
     $("imgOn").onchange = (e) => { $("imgBox").hidden = !e.target.checked; if (e.target.checked) setImage(); };
-    $("flowLegend").innerHTML = flow.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}m/s〜</span>`).join("");
-    $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
     $("currentOn").onchange = (e) => {
       $("currentBody").hidden = !e.target.checked;
       if (!e.target.checked) stop();

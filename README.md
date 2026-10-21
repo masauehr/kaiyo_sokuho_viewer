@@ -7,7 +7,7 @@
 - 公開版: https://kaiyo-sokuho-viewer.onrender.com/
 （Render無料プラン。スリープ復帰に30〜60秒かかる場合あり）
 - 出典: [海上保安庁 海洋情報部 海洋速報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/) ／ [流軸数値・GIS情報](https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html)
-- 流れ場は NOAA CoastWatch / AVISO+ の表層地衡流（海保とは別データ）。波高は気象庁の波浪実況・予想図（数値波浪モデルの画像タイル。海保とは別データ）。海底地形は GEBCO（航行・安全用途には使用不可）。
+- NOAA からのデータ取得は行いません。波高は気象庁の波浪実況・予想図（数値波浪モデルの画像タイル。海保とは別データ）。海底地形は GEBCO（航行・安全用途には使用不可）。
 - 流線は概位で、1〜2マイルの誤差を含みます。**航行の安全確保には公式の海洋速報を確認してください。**
 
 ## 起動
@@ -19,7 +19,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 ```
 
 標準ライブラリのみ（追加インストール不要）。ブラウザからは海保サイトをCORSで直接取得できないため、
-`server.py` が中継と変換（GeoJSON・流れ場）を行い、`data/cache/` にキャッシュします。API一覧・データソース・設計判断は [kaiyo-sokuho-viewer.md](kaiyo-sokuho-viewer.md) にまとめています。
+`server.py` が中継と変換（GeoJSON）を行い、`data/cache/` にキャッシュします。API一覧・データソース・設計判断は [kaiyo-sokuho-viewer.md](kaiyo-sokuho-viewer.md) にまとめています。
 
 ## 現在の機能（v0.7。表の並びは画面の順とは別）
 
@@ -33,11 +33,10 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 最寄り黒潮までの距離 | 地図クリックで距離（海里・km）と方位を表示 |
 | 公式海流図の表示 | 公式PNG（海流図）を別枠で表示 |
 | 背景地図 | 地理院タイル（淡色・標準・写真・白地図） |
-| 流れ場（参考） | NOAA CoastWatch の表層地衡流（日次・0.25度）を粒子アニメーションで表示。号の解析日に合わせ、色は流速。クリックで地点の流速（ノット・向き）も表示 |
 | 気象庁の波浪図 | 気象庁「波浪実況・予想図」のタイル（波の高さ・波と風・風浪・うねり・多方向・流れで険しく、6時間ごと、過去の解析〜約2日先）を等波高線つきで重ねる。**地図上部に表示日時を大きく表示**。画像のためクリックでの数値表示は無し |
 | 気象庁の水温・海流図 | 海面水温の実況・平年差・約30日先の予想、50/100/200/400m深水温、50m深海流（実況・予想）の画像タイル。時刻スライダー・再生付き |
 | 海底地形の背景図 | 背景地図に「GEBCO（水深の色分け）」「Esri 海洋図（水深の陰影・地名）」を追加 |
-| 地点の水深 | 地図クリックで水深（GEBCO）も表示（流れ場オンなら流速も） |
+| 地点の水深 | 地図クリックで水深（GEBCO）を表示 |
 | GeoJSON保存 | 表示中の号をGeoJSONで保存 |
 
 ## Render へのデプロイ（PC不要で公開）
@@ -67,7 +66,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 kaiyo_sokuho_viewer/
 ├── server.py        # 静的配信 + 外部データ中継 + 変換（KML/DBF/CSV→JSON）
 ├── render.yaml      # Render Blueprint
-├── web/             # フロント（Vanilla JS + Leaflet。app.js / flow.js / jmatile.js）
+├── web/             # フロント（Vanilla JS + Leaflet。app.js / jmatile.js）
 ├── data/cache/      # 取得済みデータ（git除外）
 ├── docs/            # データ仕様・機能計画
 └── tests/           # 変換処理のテスト

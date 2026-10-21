@@ -135,14 +135,6 @@
     </div>
 
     <section>
-      <h2>流れ場（参考・モデル外）</h2>
-      <label class="row"><input type="checkbox" id="flowOn"> 表層の流れを粒子で表示</label>
-      <div id="flowLegend" class="legend"></div>
-      <div id="flowMeta" class="meta"></div>
-      <p class="note">NOAA CoastWatch の表層地衡流（海面高度から計算・日次・約25km格子）です。<b>海上保安庁の海流図とは別のデータ</b>で、沿岸の細かい流れや小さな渦は表せず、流軸とずれることがあります。</p>
-    </section>
-
-    <section>
       <h2>地図の操作</h2>
       <div class="row">
         <select id="basemap">
@@ -169,7 +161,6 @@
   <div id="timeBox" hidden></div>
   <div id="toast" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/flow.js"></script>
   <script src="js/jmatile.js"></script>
   <script src="js/app.js"></script>
 </body>

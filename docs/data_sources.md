@@ -38,7 +38,7 @@
 
 利用条件は [リンク・著作権等](http://www1.kaiho.mlit.go.jp/copyright.html) を確認すること。
 
-## 流れ場（海保以外・参考）
+## 【2026-10-21削除・参考】流れ場（NOAA。NOAAからの取得は恒久的にやめた）
 | 項目 | 内容 |
 |---|---|
 | データ | NOAA CoastWatch ERDDAP `noaacwBLENDEDNRTcurrentsDaily`（表層地衡流 u_current/v_current、全球0.25度、日次） |
@@ -66,7 +66,7 @@
 | 気象庁 沿岸波浪実況・予想図（53海域） | `https://www.data.jma.go.jp/waveinf/tile/jp/index_guid.html`。海域ごとの最大波高・周期、過去72時間〜未来72時間を3時間ごと、1日4回更新、時系列CSVあり。**未対応**（CSVのURL規則は未調査） |
 | 気象庁 波浪GPV | 気象業務支援センター配信（有償）のため公開サーバーでは使えない |
 | 旧「外洋/沿岸波浪図」画像 | `www.data.jma.go.jp/gmd/kaiyou/db/wave/comment/chart/image/{ocean/s_awpn,ocean/s_fwpn,coast/s_awjp,coast/s_fwjp}.png`。外洋は最終更新が2019年のため不採用 |
-| NOAA WW3（保留） | ERDDAP `https://upwell.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best`（変数 `Thgt`、0.5度・1時間、過去〜約5日先、経度は0〜360表記）。時刻・取得の動作は確認済みだが、2026-10-20〜21にサーバーへ接続できず不採用。復旧すれば0.5度版へ戻せる。`ww3_global` は取得が404になった |
+| NOAA WW3（不採用・NOAAからの取得は恒久的にやめた） | ERDDAP `https://upwell.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best`（変数 `Thgt`、0.5度・1時間、過去〜約5日先、経度は0〜360表記）。時刻・取得の動作は確認済みだが、2026-10-20〜21にサーバーへ接続できず不採用。復旧すれば0.5度版へ戻せる。`ww3_global` は取得が404になった |
 
 ## 気象庁の水温・海流図（画像タイル。2026-10-21 調査）
 | 項目 | 内容 |
