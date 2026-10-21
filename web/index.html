@@ -9,10 +9,19 @@
 </head>
 <body>
   <aside id="panel">
-    <h1>海況ビューア</h1>
-    <p class="sub">出典：気象庁（波浪図・水温）／海上保安庁 海洋情報部（海流）ほか</p>
+    <div id="head">
+      <div class="row"><h1>海況ビューア</h1><button id="layoutBtn" class="mini" title="画面の表示方法を切り替えます">スマホ用表示</button></div>
+      <p class="sub">出典：気象庁（波浪図・水温・海流図）／海上保安庁 海洋情報部（海流）ほか</p>
+    </div>
+    <nav id="tabs" aria-label="メニュー">
+      <button data-t="wave">波浪図</button>
+      <button data-t="temp">水温・海流図</button>
+      <button data-t="current">海保の海流</button>
+      <button data-t="map">地図・設定</button>
+    </nav>
+    <div id="panelBody">
 
-    <section>
+    <section data-tab="wave">
       <h2>気象庁の波浪図（実況・予想）</h2>
       <label class="row"><input type="checkbox" id="jwOn" checked> 気象庁の波浪図を重ねる</label>
       <div class="row">
@@ -40,7 +49,7 @@
       <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
     </section>
 
-    <section>
+    <section data-tab="temp">
       <h2>海面水温・表層水温・海流</h2>
       <label class="row"><input type="checkbox" id="stOn"> 気象庁の水温・海流図を重ねる</label>
       <div class="row">
@@ -80,13 +89,13 @@
       <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。画像のため、地図クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
     </section>
 
-    <section>
+    <section data-tab="current">
       <h2>海上保安庁の海流</h2>
       <label class="row"><input type="checkbox" id="currentOn"> 海流（黒潮など）を表示</label>
       <p class="note">既定は非表示です。オンにすると下の操作（号の選択・再生・比較・流軸の通過緯度）が使えます。</p>
     </section>
 
-    <div id="currentBody" hidden>
+    <div id="currentBody" data-tab="current" hidden>
     <section>
       <h2>号の選択</h2>
       <div class="row">
@@ -134,7 +143,7 @@
     </section>
     </div>
 
-    <section>
+    <section data-tab="map">
       <h2>地図の操作</h2>
       <div class="row">
         <select id="basemap">
@@ -151,10 +160,20 @@
         <button id="dlGeo">GeoJSON保存</button>
         <button id="fit">全体表示</button>
       </div>
-      <p class="note">地図をクリックすると、最寄りの黒潮までの距離・方位・水温・水深（GEBCO）を表示します。</p>
+      <p class="note">地図をクリック（タップ）すると、水深（GEBCO）を表示します。海流を表示しているときは最寄りの黒潮までの距離・方位も出ます。</p>
     </section>
 
-    <p class="foot">流線は概位で、1〜2マイルの誤差を含むことがあります。渦などは表現されません。航行の安全確保には公式の海洋速報をご確認ください。</p>
+    <section data-tab="map">
+      <h2>表示設定</h2>
+      <div class="row"><span class="note">画面</span>
+        <select id="layoutMode"><option value="pc">パソコン用</option><option value="mobile">スマホ用</option></select></div>
+      <div class="row"><span class="note">日時表示</span>
+        <select id="timeStyle"><option value="large">大（中央）</option><option value="compact">小（上部に横長）</option></select></div>
+      <p class="note">「スマホ用」は地図を全面に出し、メニューを下からのタブ式にします。選んだ設定はこの端末に保存されます。</p>
+    </section>
+
+    <p class="foot" data-tab="map">流線は概位で、1〜2マイルの誤差を含むことがあります。渦などは表現されません。航行の安全確保には公式の海洋速報をご確認ください。</p>
+    </div>
   </aside>
   <main id="map"></main>
   <div id="imgBox" hidden><img id="officialImg" alt="公式海流図"></div>

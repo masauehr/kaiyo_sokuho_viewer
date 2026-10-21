@@ -31,6 +31,43 @@
   let curLayer = null, ghostLayer = null, clickLayer = null, curGeo = null, token = 0;
 
   const map = L.map("map", { zoomControl: true }).setView([32, 137], 5);
+
+  // 表示方法（パソコン用／スマホ用）と日時表示の大きさ。選択はこの端末(localStorage)に保存する
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 保存できなくても動作は続ける */ } },
+  };
+  const looksLikePhone = () => matchMedia("(max-width: 720px)").matches || matchMedia("(pointer: coarse) and (max-width: 900px)").matches;
+  let layout = store.get("kaiyo_layout") || (looksLikePhone() ? "mobile" : "pc");
+  let timeStyle = store.get("kaiyo_timestyle"); // 未選択ならモードに合わせる（スマホ=小、パソコン=大）
+  let tab = store.get("kaiyo_tab") || "wave", sheetOpen = true;
+
+  function applyLayout() {
+    const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
+    document.body.classList.toggle("mobile", mobile);
+    document.body.classList.toggle("compact-time", ts === "compact");
+    document.body.classList.toggle("sheet-closed", mobile && !sheetOpen);
+    document.body.dataset.tab = tab;
+    $("timeBox").classList.toggle("compact", ts === "compact");
+    $("layoutMode").value = layout; $("timeStyle").value = ts;
+    $("layoutBtn").textContent = mobile ? "パソコン用表示" : "スマホ用表示";
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", sheetOpen && b.dataset.t === tab));
+    // 下のメニューの高さ分だけ地図の出典表示を持ち上げる
+    document.documentElement.style.setProperty("--sheet-h", mobile ? `${$("panel").offsetHeight}px` : "0px");
+    setTimeout(() => map.invalidateSize(), 0);
+  }
+  const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); applyLayout(); };
+  $("layoutMode").onchange = (e) => setLayout(e.target.value);
+  $("layoutBtn").onclick = () => setLayout(layout === "mobile" ? "pc" : "mobile");
+  $("timeStyle").onchange = (e) => { timeStyle = e.target.value; store.set("kaiyo_timestyle", timeStyle); applyLayout(); };
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.onclick = () => { // 開いているタブをもう一度押すとメニューを閉じて地図を広く見られる
+      if (tab === b.dataset.t && sheetOpen) sheetOpen = false; else { tab = b.dataset.t; sheetOpen = true; store.set("kaiyo_tab", tab); }
+      applyLayout();
+    };
+  });
+  if (window.ResizeObserver) new ResizeObserver(() => applyLayout()).observe($("panel"));
+  applyLayout();
   // 気象庁の画像タイル: 波浪図（既定の表示）と、海面水温・表層水温・海流の図
   const JW = "https://www.data.jma.go.jp/waveinf/tile/jp/images/rect_", JK = "https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_";
   const lg = (base, rows) => rows.map(([n, v]) => [`${base}${n}.svg`, v]);
