@@ -40,15 +40,9 @@
   const looksLikePhone = () => matchMedia("(max-width: 720px)").matches || matchMedia("(pointer: coarse) and (max-width: 900px)").matches;
   let layout = store.get("kaiyo_layout") || (looksLikePhone() ? "mobile" : "pc");
   let timeStyle = store.get("kaiyo_timestyle"); // 未選択ならモードに合わせる（スマホ=小、パソコン=大）
-  let tab = "wave", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
+  let tab = "chart", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
   let sheetSize = store.get("kaiyo_sheet") || "s"; // スマホ用メニューの高さ（地図を広く見るため既定は小）
   const SHEET_VH = { s: 26, m: 36, l: 50 };
-  // スマホ用: タブ＝見たい図。タブを切り替えたら、そのタブの図を表示し、前のタブの図は消す（設定でオフにすると重ねて使える）
-  let autoSwitch = store.get("kaiyo_autoswitch") !== "0";
-  const TAB_LAYER = { wave: "jwOn", temp: "stOn", current: "currentOn" };
-  let layerTab = "wave"; // 直近に開いた「図のあるタブ」（地図・設定タブを挟んでも前の図を正しく消すため）
-  const setChecked = (id, on) => { const c = $(id); if (c.checked !== on) { c.checked = on; c.dispatchEvent(new Event("change")); } };
-
   function applyLayout() {
     const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
     document.body.classList.toggle("mobile", mobile);
@@ -56,7 +50,7 @@
     document.body.classList.toggle("sheet-closed", mobile && !sheetOpen);
     document.body.dataset.tab = tab;
     $("timeBox").classList.toggle("compact", ts === "compact");
-    $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize; $("autoSwitch").checked = autoSwitch;
+    $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize;
     document.documentElement.style.setProperty("--sheet-max", `${SHEET_VH[sheetSize]}vh`);
     $("layoutBtn").textContent = mobile ? "パソコン用表示" : "スマホ用表示";
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", sheetOpen && b.dataset.t === tab));
@@ -67,7 +61,6 @@
   const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); applyLayout(); };
   $("layoutMode").onchange = (e) => setLayout(e.target.value);
   $("layoutBtn").onclick = () => setLayout(layout === "mobile" ? "pc" : "mobile");
-  $("autoSwitch").onchange = (e) => { autoSwitch = e.target.checked; store.set("kaiyo_autoswitch", autoSwitch ? "1" : "0"); };
   $("sheetSize").onchange = (e) => { sheetSize = e.target.value; store.set("kaiyo_sheet", sheetSize); applyLayout(); };
   $("timeStyle").onchange = (e) => { timeStyle = e.target.value; store.set("kaiyo_timestyle", timeStyle); applyLayout(); };
   document.querySelectorAll("#tabs button").forEach((b) => {
@@ -77,20 +70,13 @@
       else {
         tab = next; sheetOpen = true;
         $("panelBody").scrollTop = 0; // 前のタブのスクロール位置を引き継がない（内容が隠れて同じに見えるのを防ぐ）
-        if (TAB_LAYER[next]) {
-          if (autoSwitch && layerTab !== next) {
-            setChecked(TAB_LAYER[layerTab], false);
-            setChecked(TAB_LAYER[next], true);
-          }
-          layerTab = next;
-        }
       }
       applyLayout();
     };
   });
   if (window.ResizeObserver) new ResizeObserver(() => applyLayout()).observe($("panel"));
   applyLayout();
-  // 気象庁の画像タイル: 波浪図（既定の表示）と、海面水温・表層水温・海流の図
+  // 気象庁の画像タイル（メインの図。常に表示）: 波浪図（既定）・海面水温・表層水温・海流の図を1つのビューアで切り替える
   const JW = "https://www.data.jma.go.jp/waveinf/tile/jp/images/rect_", JK = "https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_";
   const lg = (base, rows) => rows.map(([n, v]) => [`${base}${n}.svg`, v]);
   const TEMP = lg(JK, [["wtmp30G", "30"], ["wtmp25G", "25"], ["wtmp20G", "20"], ["wtmp15G", "15"], ["wtmp10G", "10"], ["wtmp05G", "5"]]);
@@ -117,11 +103,6 @@
       swell: wave("swell", lg(JW, [["wvp01G", "6秒"], ["wvp02G", ""], ["wvp03G", ""], ["wvp04G", ""], ["wvp05G", ""], ["wvp06G", ""], ["wvp07G", ""], ["wvp08G", ""], ["wvp09G", ""], ["wvp10G", ""], ["wvp11G", "16秒"]]), "色は周期"),
       roughwv: wave("roughwv", lg(JW, [["rough", "多方向から波が来る海域"]]), ""),
       curwv: wave("curwv", lg(JW, [["202_000_000", "流れで波が険しくなる海域"]]), ""),
-    },
-  });
-  const st = JmaTileViewer(map, {
-    prefix: "st", pane: "stile", zIndex: 256, onLabel, toast: (m) => toast(m),
-    elements: {
       sst: kai("sst_anl", "surf", ["sst"], TEMP, "℃"),
       sstanom: kai("sst_anl", "surf", ["sstanom"], ANOM, "℃"),
       sstf: kai("sst_fct", "surf", ["sst"], TEMP, "℃"),

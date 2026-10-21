@@ -1,6 +1,6 @@
 // 気象庁の画像タイル（波浪図・水温図・海流図）を、時刻スライダー・再生付きで地図に重ねるビューア
 // 使い方: JmaTileViewer(map, { prefix: "jw", pane: "jwave", zIndex: 258, elements, onLabel, toast })
-//   画面側のid: {prefix}On / El / Prev / Next / Slider / Play / Now / Opacity / Legend / Meta
+//   画面側のid: {prefix}El / Prev / Next / Slider / Play / Now / Opacity / Legend / Meta（{prefix}On のチェックは任意。無ければ常に表示）
 //   elements: { 要素キー: { ds, depth, ids[], minZoom, maxZoom, hour(時刻まで表示するか), legend, unit } }
 window.JmaTileViewer = (map, o) => {
   const p = o.prefix, $ = (s) => document.getElementById(p + s);
@@ -16,6 +16,7 @@ window.JmaTileViewer = (map, o) => {
   let times = null, curDs = null, idx = 0, playing = false, token = 0;
   map.createPane(o.pane).style.zIndex = o.zIndex;
   const el = () => o.elements[$("El").value];
+  const isOn = () => !$("On") || $("On").checked; // 表示のオン/オフのチェックは任意（メインの図は常に表示）
 
   // 「現在」= 解析値（基準時刻=対象時刻）のうち最新。なければ先頭（予想のみの一覧）
   const nowIdx = () => Math.max(0, times.reduce((m, t, k) => (t.basetime === t.validtime ? k : m), 0));
@@ -63,7 +64,7 @@ window.JmaTileViewer = (map, o) => {
   }
 
   async function show(i) {
-    if (!$("On").checked) return;
+    if (!isOn()) return;
     const my = ++token;
     try {
       await ensureTimes();
@@ -85,7 +86,7 @@ window.JmaTileViewer = (map, o) => {
 
   async function play() {
     if (playing) return stop();
-    if (!$("On").checked) return;
+    if (!isOn()) return;
     try { await ensureTimes(); } catch (err) { return o.toast(err.message); }
     playing = true; $("Play").textContent = "■ 停止";
     let i = idx >= times.length - 1 ? 0 : idx; // 最後のコマなら先頭から
@@ -105,9 +106,11 @@ window.JmaTileViewer = (map, o) => {
     stop();
   }
 
-  $("On").onchange = (e) => {
-    if (e.target.checked) { renderLegend(); show(); } else { stop(); token++; clear(); o.onLabel(p, null); }
-  };
+  if ($("On")) {
+    $("On").onchange = (e) => {
+      if (e.target.checked) { renderLegend(); show(); } else { stop(); token++; clear(); o.onLabel(p, null); }
+    };
+  }
   $("El").onchange = () => { stop(); clear(); times = null; renderLegend(); show(); };
   $("Slider").oninput = (e) => { stop(); show(Number(e.target.value)); };
   $("Prev").onclick = () => { stop(); show(idx - 1); };
@@ -117,5 +120,5 @@ window.JmaTileViewer = (map, o) => {
   $("Opacity").oninput = () => { if (times) show(idx); };
 
   renderLegend();
-  return { show, isOn: () => $("On").checked };
+  return { show, isOn };
 };

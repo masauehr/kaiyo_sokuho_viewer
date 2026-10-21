@@ -14,44 +14,24 @@
       <p class="sub">出典：気象庁（波浪図・水温・海流図）／海上保安庁 海洋情報部（海流）ほか</p>
     </div>
     <nav id="tabs" aria-label="メニュー">
-      <button data-t="wave">波浪図</button>
-      <button data-t="temp">水温・海流図</button>
+      <button data-t="chart">気象庁の図</button>
       <button data-t="current">海保の海流</button>
       <button data-t="map">地図・設定</button>
     </nav>
     <div id="panelBody">
 
-    <section data-tab="wave">
-      <h2>気象庁の波浪図（実況・予想）</h2>
-      <div class="row"><label class="chk"><input type="checkbox" id="jwOn" checked> 重ねる</label>
+    <section data-tab="chart">
+      <h2>気象庁の図（実況・予想）</h2>
+      <div class="row"><label class="chk"><input type="checkbox" id="jwOn" checked> 表示</label>
         <select id="jwEl">
-          <option value="wavh">波の高さ</option>
-          <option value="wind">波と風</option>
-          <option value="windsea">風浪と風</option>
-          <option value="swell">うねりの高さと周期</option>
-          <option value="roughwv">多方向から波が来る海域</option>
-          <option value="curwv">流れで波が険しくなる海域</option>
-        </select>
-      </div>
-      <div class="row">
-        <button id="jwPrev" title="前の時刻">◀</button>
-        <input type="range" id="jwSlider" min="0" max="0" value="0">
-        <button id="jwNext" title="次の時刻">▶</button>
-      </div>
-      <div class="row">
-        <button id="jwPlay">▶ 再生</button>
-        <button id="jwNow">現在</button>
-        <span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75">
-      </div>
-      <div id="jwLegend" class="legend"></div>
-      <div id="jwMeta" class="meta"></div>
-      <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
-    </section>
-
-    <section data-tab="temp">
-      <h2>海面水温・表層水温・海流</h2>
-      <div class="row"><label class="chk"><input type="checkbox" id="stOn"> 重ねる</label>
-        <select id="stEl">
+          <optgroup label="波浪（実況・約2日先まで）">
+            <option value="wavh">波の高さ</option>
+            <option value="wind">波と風</option>
+            <option value="windsea">風浪と風</option>
+            <option value="swell">うねりの高さと周期</option>
+            <option value="roughwv">多方向から波が来る海域</option>
+            <option value="curwv">流れで波が険しくなる海域</option>
+          </optgroup>
           <optgroup label="海面水温">
             <option value="sst">海面水温（実況）</option>
             <option value="sstanom">海面水温の平年差（実況）</option>
@@ -73,24 +53,24 @@
         </select>
       </div>
       <div class="row">
-        <button id="stPrev" title="前の日">◀</button>
-        <input type="range" id="stSlider" min="0" max="0" value="0">
-        <button id="stNext" title="次の日">▶</button>
+        <button id="jwPrev" title="前の時刻">◀</button>
+        <input type="range" id="jwSlider" min="0" max="0" value="0">
+        <button id="jwNext" title="次の時刻">▶</button>
       </div>
       <div class="row">
-        <button id="stPlay">▶ 再生</button>
-        <button id="stNow">現在</button>
-        <span class="note">濃さ</span><input type="range" id="stOpacity" min="0.2" max="1" step="0.05" value="0.75">
+        <button id="jwPlay">▶ 再生</button>
+        <button id="jwNow">現在</button>
+        <span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75">
       </div>
-      <div id="stLegend" class="legend"></div>
-      <div id="stMeta" class="meta"></div>
-      <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。画像のため、地図クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
+      <div id="jwLegend" class="legend"></div>
+      <div id="jwMeta" class="meta"></div>
+      <p class="note">気象庁の「波浪実況・予想図」「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です。波浪は6時間ごと（過去の解析〜約2日先）、水温・海流は日ごと（実況は直近5日、予想は約30日先）。画像のため、地図クリックでの数値表示はできません。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
     </section>
 
     <section data-tab="current">
       <h2>海上保安庁の海流</h2>
-      <label class="row"><input type="checkbox" id="currentOn"> 海流（黒潮など）を表示</label>
-      <p class="note">既定は非表示です。オンにすると下の操作（号の選択・再生・比較・流軸の通過緯度）が使えます。</p>
+      <label class="row"><input type="checkbox" id="currentOn"> 海保の海流（黒潮など）を表示</label>
+      <p class="note">気象庁の図の上に重ねて表示します（既定は非表示）。オンにすると下の操作（号の選択・再生・比較・流軸の通過緯度）が使えます。</p>
     </section>
 
     <div id="currentBody" data-tab="current" hidden>
@@ -167,7 +147,6 @@
         <select id="layoutMode"><option value="pc">パソコン用</option><option value="mobile">スマホ用</option></select></div>
       <div class="row"><span class="note">メニュー高さ</span>
         <select id="sheetSize"><option value="s">小（画面の1/4）</option><option value="m">中（約1/3）</option><option value="l">大（約1/2）</option></select></div>
-      <label class="chk row"><input type="checkbox" id="autoSwitch" checked> タブを切り替えたら図も切り替える（スマホ用）</label>
       <div class="row"><span class="note">日時表示</span>
         <select id="timeStyle"><option value="large">大（中央）</option><option value="compact">小（上部に横長）</option></select></div>
       <p class="note">「スマホ用」は地図を全面に出し、メニューを下からのタブ式にします。選んだ設定はこの端末に保存されます。</p>
