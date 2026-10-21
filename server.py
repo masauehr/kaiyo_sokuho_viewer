@@ -38,9 +38,16 @@ FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲�
 # 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
 SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
 SST_AREA = "[(15):3:(50)][(115):3:(160)]"
-# 気象庁 波浪実況・予想図（地図タイル。時刻一覧 targetTimes.json と {基準}/none/{対象}/surf/wavh/{z}/{x}/{y}.png）
-JMA_WAVE_BASE = "https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/"
-JMA_TILE_MAX = 2000  # メモリに保持するタイル数の上限（1枚30KB前後。全コマ先読みで13コマ分を保持するため多め）
+# 気象庁の画像タイル（波浪実況・予想図／海面水温／表層水温・海流）。
+# 構成: {ルート}/{時刻一覧ファイル}、{ルート}/{基準}/none/{対象}/{深さ}/{種別}/{z}/{x}/{y}.png
+JMA_TILESETS = {
+    "wave": ("https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/", "targetTimes.json"),
+    "sst_anl": ("https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/sst_anl/", "targetTimes.json"),
+    "sst_fct": ("https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/sst_fct/", "targetTimes_fct.json"),
+    "subs_anl": ("https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/subs/", "targetTimes.json"),
+    "subs_fct": ("https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/subs/", "targetTimes_fct.json"),
+}
+JMA_TILE_MAX = 1500  # メモリに保持するタイル数の上限（1枚30〜100KB。古いものから捨てる）
 # 気象庁 MGDSST（全球日別海面水温 0.25度。前日の値まで公開。数値はgz圧縮テキスト）
 JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
@@ -192,34 +199,39 @@ def get_sst_jma(date):
     return body
 
 
-_jwave_times = {"t": 0, "v": None}
-_jwave_tiles = {}  # キー → bytes（挿入順で古いものから捨てる）
+_jtile_times = {}  # データセット名 → {"t": 取得時刻, "v": 一覧}
+_jtile_cache = {}  # キー → bytes（挿入順で古いものから捨てる）
 
 
-def get_jma_wave_times():
-    """気象庁の波浪図の時刻一覧 [{basetime, validtime}]（UTC, 14桁）。10分キャッシュ。"""
-    if _jwave_times["v"] and time.time() - _jwave_times["t"] < 600:
-        return _jwave_times["v"]
+def get_jma_tile_times(ds):
+    """気象庁タイルの時刻一覧 [{basetime, validtime}]（UTC, 14桁）。10分キャッシュ。"""
+    if ds not in JMA_TILESETS:
+        raise ValueError("不明なデータセットです")
+    c = _jtile_times.get(ds)
+    if c and time.time() - c["t"] < 600:
+        return c["v"]
+    root, tfile = JMA_TILESETS[ds]
     try:
-        req = urllib.request.Request(JMA_WAVE_BASE + "targetTimes.json", headers=UA)
+        req = urllib.request.Request(root + tfile, headers=UA)
         with urllib.request.urlopen(req, timeout=30) as r:
             v = json.loads(r.read())
-        _jwave_times.update(t=time.time(), v=v)
+        _jtile_times[ds] = {"t": time.time(), "v": v}
     except Exception:
-        if not _jwave_times["v"]:
+        if not c:
             raise
-    return _jwave_times["v"]
+        return c["v"]
+    return v
 
 
-def get_jma_wave_tile(base, valid, el, z, x, y):
-    """波浪図タイルPNG。時刻は一覧にあるものだけ許可し、メモリに保持して気象庁への負荷を抑える。"""
-    if not any(t["basetime"] == base and t["validtime"] == valid for t in get_jma_wave_times()):
+def get_jma_tile(ds, base, valid, depth, kind, z, x, y):
+    """気象庁のタイルPNG。時刻は一覧にあるものだけ許可し、メモリに保持して気象庁への負荷を抑える。"""
+    if not any(t["basetime"] == base and t["validtime"] == valid for t in get_jma_tile_times(ds)):
         raise ValueError("その時刻の図はありません")
-    key = (base, valid, el, z, x, y)
-    hit = _jwave_tiles.get(key)
+    key = (ds, base, valid, depth, kind, z, x, y)
+    hit = _jtile_cache.get(key)
     if hit is not None:
         return hit
-    url = f"{JMA_WAVE_BASE}{base}/none/{valid}/surf/{el}/{z}/{x}/{y}.png"
+    url = f"{JMA_TILESETS[ds][0]}{base}/none/{valid}/{depth}/{kind}/{z}/{x}/{y}.png"
     req = urllib.request.Request(url, headers=UA)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -229,9 +241,9 @@ def get_jma_wave_tile(base, valid, el, z, x, y):
             body = b""
         else:
             raise
-    _jwave_tiles[key] = body
-    while len(_jwave_tiles) > JMA_TILE_MAX:
-        _jwave_tiles.pop(next(iter(_jwave_tiles)))
+    _jtile_cache[key] = body
+    while len(_jtile_cache) > JMA_TILE_MAX:
+        _jtile_cache.pop(next(iter(_jtile_cache)))
     return body
 
 
@@ -463,11 +475,13 @@ class Handler(SimpleHTTPRequestHandler):
                 if src not in ("jma", "noaa"):
                     raise ValueError("src は jma か noaa です")
                 return self._send(get_sst(m.group(1), src), "application/json; charset=utf-8", max_age=3600)
-            if p == "/api/jmawave/times":
-                return self._send(json.dumps(get_jma_wave_times()).encode(), "application/json; charset=utf-8", max_age=300)
-            m = re.fullmatch(r"/api/jmawave/(\d{14})/(\d{14})/(wavh|windsea|swell)/([3-7])/(\d{1,3})/(\d{1,3})\.png", p)
+            m = re.fullmatch(r"/api/jmatile/times/(wave|sst_anl|sst_fct|subs_anl|subs_fct)", p)
             if m:
-                body = get_jma_wave_tile(*m.groups())
+                return self._send(json.dumps(get_jma_tile_times(m.group(1))).encode(), "application/json; charset=utf-8", max_age=300)
+            m = re.fullmatch(r"/api/jmatile/(wave|sst_anl|sst_fct|subs_anl|subs_fct)/(\d{14})/(\d{14})/(surf|50|100|200|400)"
+                             r"/(wavh|wind|windsea|swell|roughwv|curwv|sst|sstanom|temp|curs|curd)/([3-9])/(\d{1,3})/(\d{1,3})\.png", p)
+            if m:
+                body = get_jma_tile(*m.groups())
                 if not body:  # 範囲外は 1x1 の透明PNG
                     body = TRANSPARENT_PNG
                 return self._send(body, "image/png", max_age=1800)

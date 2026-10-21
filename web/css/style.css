@@ -25,6 +25,15 @@ input[type=range] { width:100%; }
 .axis th { font-weight:600; }
 #imgBox { position:absolute; right:12px; bottom:12px; z-index:1000; width:min(46vw,520px); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:4px; }
 #imgBox img { width:100%; display:block; border-radius:4px; }
+h3 { font-size:13px; margin:14px 0 4px; padding-top:10px; border-top:1px solid var(--line); }
+#timeBox { position:absolute; left:50%; top:12px; transform:translateX(-50%); z-index:900; pointer-events:none; text-align:center; padding:6px 18px; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:10px; box-shadow:0 2px 8px #0003; }
+#timeBox .big { font-size:30px; font-weight:700; line-height:1.2; letter-spacing:.02em; }
+#timeBox .sub { font-size:13px; }
+#timeBox .tag { display:inline-block; padding:0 8px; margin-right:6px; border-radius:10px; font-size:12px; font-weight:700; color:#fff; background:#1f6fd1; }
+#timeBox .tag.fc { background:#e8710a; }
+#timeBox .line + .line { margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
+.legend img { width:16px; height:11px; margin-right:3px; vertical-align:middle; border:1px solid #0002; }
+.legend .unit { color:var(--muted, #666); }
 #toast { position:absolute; left:340px; top:12px; z-index:1000; padding:8px 12px; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; box-shadow:0 2px 8px #0003; }
 @media (max-width: 720px) {
   body { flex-direction:column-reverse; }

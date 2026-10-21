@@ -34,9 +34,50 @@
   const flow = FlowLayer(map);
   const flowCache = new Map();
   const sst = SstLayer(map), sstCache = new Map();
-  map.createPane("jwave").style.zIndex = 258; // 気象庁の波浪図タイル（水温250・波高255の上、流線400の下）
-  let jwTimes = null, jwIdx = 0, jwTimer = null, jwToken = 0;
-  const jwFrames = new Map(); // 「要素/基準/対象」→ タイルレイヤー（全コマを透明で重ねておき、表示は不透明度の切り替えだけ）
+  // 気象庁の画像タイル: 波浪図（既定の表示）と、海面水温・表層水温・海流の図
+  const JW = "https://www.data.jma.go.jp/waveinf/tile/jp/images/rect_", JK = "https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_";
+  const lg = (base, rows) => rows.map(([n, v]) => [`${base}${n}.svg`, v]);
+  const TEMP = lg(JK, [["wtmp30G", "30"], ["wtmp25G", "25"], ["wtmp20G", "20"], ["wtmp15G", "15"], ["wtmp10G", "10"], ["wtmp05G", "5"]]);
+  const ANOM = lg(JK, [["anomP4G", "+4"], ["anomP3G", "+3"], ["anomP2G", "+2"], ["anomP1G", "+1"], ["anom00G", "0"], ["anomM1G", "-1"], ["anomM2G", "-2"], ["anomM3G", "-3"], ["anomM4G", "-4"]]);
+  const CUR = lg(JK, [["cur3p0G", "3.0"], ["cur2p5G", "2.5"], ["cur2p0G", "2.0"], ["cur1p5G", "1.5"], ["cur1p0G", "1.0"], ["cur0p5G", "0.5"]]);
+  const wave = (id, legend, unit) => ({ ds: "wave", depth: "surf", ids: [id], minZoom: 3, maxZoom: 7, hour: true, legend, unit });
+  const kai = (ds, depth, ids, legend, unit) => ({ ds, depth, ids, minZoom: 4, maxZoom: 9, hour: false, legend, unit });
+  const timeLines = {}; // 画面に出ている図の表示日時（地図上の大きな表示）
+  const onLabel = (key, v) => {
+    if (v) timeLines[key] = v; else delete timeLines[key];
+    const box = $("timeBox"), keys = Object.keys(timeLines);
+    box.hidden = !keys.length;
+    box.innerHTML = keys.map((k) => {
+      const t = timeLines[k];
+      return `<div class="line"><div class="big">${t.big}</div><div class="sub"><span class="tag${t.kind === "予想" ? " fc" : ""}">${t.kind}</span>${t.name}</div></div>`;
+    }).join("");
+  };
+  const jw = JmaTileViewer(map, {
+    prefix: "jw", pane: "jwave", zIndex: 258, onLabel, toast: (m) => toast(m),
+    elements: {
+      wavh: wave("wavh", lg(JW, [["wave06G", "9"], ["wave05G", "6"], ["wave04G", "4"], ["wave03G", "3"], ["wave02G", "2"], ["wave01G", "1"], ["wave00G", "0"]]), "m"),
+      wind: wave("wind", [], ""),
+      windsea: wave("windsea", [], ""),
+      swell: wave("swell", lg(JW, [["wvp01G", "6秒"], ["wvp02G", ""], ["wvp03G", ""], ["wvp04G", ""], ["wvp05G", ""], ["wvp06G", ""], ["wvp07G", ""], ["wvp08G", ""], ["wvp09G", ""], ["wvp10G", ""], ["wvp11G", "16秒"]]), "色は周期"),
+      roughwv: wave("roughwv", lg(JW, [["rough", "多方向から波が来る海域"]]), ""),
+      curwv: wave("curwv", lg(JW, [["202_000_000", "流れで波が険しくなる海域"]]), ""),
+    },
+  });
+  const st = JmaTileViewer(map, {
+    prefix: "st", pane: "stile", zIndex: 256, onLabel, toast: (m) => toast(m),
+    elements: {
+      sst: kai("sst_anl", "surf", ["sst"], TEMP, "℃"),
+      sstanom: kai("sst_anl", "surf", ["sstanom"], ANOM, "℃"),
+      sstf: kai("sst_fct", "surf", ["sst"], TEMP, "℃"),
+      t50: kai("subs_anl", "50", ["temp"], TEMP, "℃"),
+      t100: kai("subs_anl", "100", ["temp"], TEMP, "℃"),
+      t200: kai("subs_anl", "200", ["temp"], TEMP, "℃"),
+      t400: kai("subs_anl", "400", ["temp"], TEMP, "℃"),
+      t100f: kai("subs_fct", "100", ["temp"], TEMP, "℃"),
+      cur: kai("subs_anl", "50", ["curs", "curd"], CUR, "kt"),
+      curf: kai("subs_fct", "50", ["curs", "curd"], CUR, "kt"),
+    },
+  });
   const sstSrc = () => $("sstSrc").value;
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
@@ -177,77 +218,6 @@
     } catch (e) { toast(e.message); }
   }
 
-  // 気象庁の波浪図: UTC文字列(YYYY-MM-DDTHH)を日本時間の表示にする
-  const jst = (tm) => {
-    const d = new Date(`${tm}:00:00Z`), w = "日月火水木金土"[(d.getUTCDay() + (d.getUTCHours() >= 15 ? 1 : 0)) % 7];
-    const j = new Date(d.getTime() + 9 * 3600e3);
-    return `${j.getUTCMonth() + 1}/${j.getUTCDate()}(${w}) ${String(j.getUTCHours()).padStart(2, "0")}時`;
-  };
-
-  // 気象庁の波浪図: 14桁UTC(yyyyMMddHHmmss)を日本時間の表示にする
-  const jwJst = (t) => jst(`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}T${t.slice(8, 10)}`);
-
-  const jwNowIdx = () => Math.max(0, jwTimes.reduce((m, t, k) => (t.basetime === t.validtime ? k : m), 0));
-
-  // 1コマ分のレイヤー（なければ透明で作って地図に載せ、タイルの先読みを始める）
-  function jwFrame(t) {
-    const key = `${$("jwEl").value}/${t.basetime}/${t.validtime}`;
-    let l = jwFrames.get(key);
-    if (!l) {
-      l = L.tileLayer(`/api/jmawave/${t.basetime}/${t.validtime}/${$("jwEl").value}/{z}/{x}/{y}.png`,
-        { pane: "jwave", minZoom: 3, maxZoom: 12, maxNativeZoom: 7, opacity: 0, keepBuffer: 1 }).addTo(map);
-      jwFrames.set(key, l);
-    }
-    return l;
-  }
-
-  // 全コマを消す（要素の切り替え・非表示時）
-  function jwClear() {
-    for (const l of jwFrames.values()) map.removeLayer(l);
-    jwFrames.clear();
-  }
-
-  // タイルの読み込み完了を待つ（15秒で打ち切り）
-  const jwLoaded = (l) => new Promise((res) => {
-    if (!l._loading) return res();
-    const h = setTimeout(res, 15000);
-    l.once("load", () => { clearTimeout(h); res(); });
-  });
-
-  async function loadJw(i) {
-    if (!$("jwOn").checked) return;
-    const my = ++jwToken;
-    try {
-      if (!jwTimes) {
-        const r = await fetch("/api/jmawave/times");
-        if (!r.ok) throw new Error("気象庁の波浪図の時刻一覧の取得に失敗しました");
-        jwTimes = (await r.json()).sort((a, b) => a.validtime.localeCompare(b.validtime));
-        $("jwSlider").max = jwTimes.length - 1;
-        jwIdx = jwNowIdx(); // 「現在」= 解析値（基準時刻=対象時刻）のうち最新
-      }
-      if (i !== undefined) jwIdx = Math.max(0, Math.min(jwTimes.length - 1, i));
-      $("jwSlider").value = jwIdx;
-      const t = jwTimes[jwIdx], cur = jwFrame(t);
-      await jwLoaded(cur); // 読み込み済みなら即座に切り替わる（前のコマは読み込み完了まで残す）
-      if (my !== jwToken) return;
-      const o = Number($("jwOpacity").value);
-      for (const l of jwFrames.values()) l.setOpacity(l === cur ? o : 0);
-      const fc = t.basetime !== t.validtime;
-      $("jwMeta").textContent = `${jwJst(t.validtime)}　${fc ? `予想（${jwJst(t.basetime)}の解析に基づく）` : "実況（解析）"}　気象庁`;
-    } catch (e) { toast(e.message); }
-  }
-
-  // 再生前に全コマを先読みする（読み込み中は進み具合を表示）
-  async function jwPreload() {
-    let n = 0;
-    $("jwMeta").textContent = `全コマを読み込み中… 0/${jwTimes.length}`;
-    await Promise.all(jwTimes.map((t) => jwLoaded(jwFrame(t)).then(() => {
-      $("jwMeta").textContent = `全コマを読み込み中… ${++n}/${jwTimes.length}`;
-    })));
-  }
-
-  function jwStop() { clearInterval(jwTimer); jwTimer = null; $("jwPlay").textContent = "▶ 再生"; }
-
   function setImage() {
     const i = issues[idx];
     $("officialImg").src = `/api/image/${i.year}/${String(i.no).padStart(3, "0")}`;
@@ -342,35 +312,6 @@
       if (!e.target.checked) stop();
       show(idx);
     };
-    $("jwLegend").innerHTML = [["#f2f2ff", "0m〜"], ["#a0d2ff", "1m〜"], ["#0035ff", "2m〜"], ["#faf500", "3m〜"], ["#ff9900", "4m〜"], ["#ff2800", "6m〜"], ["#b40068", "9m〜"]]
-      .map(([c, v]) => `<span><i style="background:${c}"></i>${v}</span>`).join("");
-    $("jwOn").onchange = (e) => {
-      if (e.target.checked) loadJw();
-      else { jwStop(); jwToken++; jwClear(); }
-    };
-    $("jwEl").onchange = () => { jwStop(); jwClear(); loadJw(); };
-    $("jwSlider").oninput = (e) => { jwStop(); loadJw(Number(e.target.value)); };
-    $("jwPrev").onclick = () => { jwStop(); loadJw(jwIdx - 1); };
-    $("jwNext").onclick = () => { jwStop(); loadJw(jwIdx + 1); };
-    $("jwNow").onclick = () => {
-      jwStop();
-      if (jwTimes) loadJw(jwNowIdx());
-    };
-    $("jwPlay").onclick = async () => {
-      if (jwTimer) return jwStop();
-      if (!jwTimes) return;
-      $("jwPlay").textContent = "■ 停止";
-      const start = jwIdx >= jwTimes.length - 1 ? 0 : jwIdx; // 最後のコマなら先頭から
-      jwTimer = -1; // 先読み中も「再生中」として停止ボタンを効かせる
-      await jwPreload();
-      if (jwTimer !== -1) return; // 先読み中に停止された
-      await loadJw(start);
-      jwTimer = setInterval(() => {
-        if (jwIdx >= jwTimes.length - 1) return jwStop();
-        loadJw(jwIdx + 1);
-      }, 700);
-    };
-    $("jwOpacity").oninput = () => { if (jwTimes) loadJw(jwIdx); };
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;
@@ -389,7 +330,7 @@
       issues = (await res.json()).issues;
       if (!issues.length) throw new Error("号数がありません");
       initUi();
-      loadJw(); // 既定の表示は気象庁の波浪図
+      jw.show(); // 既定の表示は気象庁の波浪図
       await show(issues.length - 1);
     } catch (e) { toast(e.message, 10000); }
   })();

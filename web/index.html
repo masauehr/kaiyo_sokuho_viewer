@@ -18,8 +18,11 @@
       <div class="row">
         <select id="jwEl">
           <option value="wavh">波の高さ</option>
-          <option value="windsea">風浪の高さ</option>
-          <option value="swell">うねりの高さ</option>
+          <option value="wind">波と風</option>
+          <option value="windsea">風浪と風</option>
+          <option value="swell">うねりの高さと周期</option>
+          <option value="roughwv">多方向から波が来る海域</option>
+          <option value="curwv">流れで波が険しくなる海域</option>
         </select>
       </div>
       <div class="row">
@@ -63,6 +66,44 @@
       <div id="sstLegend" class="legend"></div>
       <div id="sstMeta" class="meta"></div>
       <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃または1℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
+
+      <h3>気象庁の水温・海流図（画像・実況と予想）</h3>
+      <label class="row"><input type="checkbox" id="stOn"> 気象庁の図を重ねる</label>
+      <div class="row">
+        <select id="stEl">
+          <optgroup label="海面水温">
+            <option value="sst">海面水温（実況）</option>
+            <option value="sstanom">海面水温の平年差（実況）</option>
+            <option value="sstf">海面水温の予想（約30日先）</option>
+          </optgroup>
+          <optgroup label="表層水温（実況）">
+            <option value="t50">50m深水温</option>
+            <option value="t100">100m深水温</option>
+            <option value="t200">200m深水温</option>
+            <option value="t400">400m深水温</option>
+          </optgroup>
+          <optgroup label="表層水温（予想）">
+            <option value="t100f">100m深水温（約30日先）</option>
+          </optgroup>
+          <optgroup label="海流">
+            <option value="cur">50m深海流（実況）</option>
+            <option value="curf">50m深海流（約30日先）</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="row">
+        <button id="stPrev" title="前の日">◀</button>
+        <input type="range" id="stSlider" min="0" max="0" value="0">
+        <button id="stNext" title="次の日">▶</button>
+      </div>
+      <div class="row">
+        <button id="stPlay">▶ 再生</button>
+        <button id="stNow">現在</button>
+      </div>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="stOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
+      <div id="stLegend" class="legend"></div>
+      <div id="stMeta" class="meta"></div>
+      <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。上の水温（MGDSST／NOAA）とは<b>別のデータ</b>で、クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
     </section>
 
     <section>
@@ -151,10 +192,12 @@
   </aside>
   <main id="map"></main>
   <div id="imgBox" hidden><img id="officialImg" alt="公式海流図"></div>
+  <div id="timeBox" hidden></div>
   <div id="toast" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/flow.js"></script>
   <script src="js/sst.js"></script>
+  <script src="js/jmatile.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

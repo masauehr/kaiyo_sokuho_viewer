@@ -67,3 +67,14 @@
 | 気象庁 波浪GPV | 気象業務支援センター配信（有償）のため公開サーバーでは使えない |
 | 旧「外洋/沿岸波浪図」画像 | `www.data.jma.go.jp/gmd/kaiyou/db/wave/comment/chart/image/{ocean/s_awpn,ocean/s_fwpn,coast/s_awjp,coast/s_fwjp}.png`。外洋は最終更新が2019年のため不採用 |
 | NOAA WW3（保留） | ERDDAP `https://upwell.pfeg.noaa.gov/erddap/griddap/NWW3_Global_Best`（変数 `Thgt`、0.5度・1時間、過去〜約5日先、経度は0〜360表記）。時刻・取得の動作は確認済みだが、2026-10-20〜21にサーバーへ接続できず不採用。復旧すれば0.5度版へ戻せる。`ww3_global` は取得が404になった |
+
+## 気象庁の水温・海流図（画像タイル。2026-10-21 調査）
+| 項目 | 内容 |
+|---|---|
+| 公式ページ | `https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/index_sstanl.html`（海面水温実況）・`index_sstfct.html`（予想）・`index_subsanl.html`（表層水温・海流実況）・`index_subsfct.html`（予想）。設定は `table/{sst_anl,sst_fct,subs_anl,subs_fct}.xml` |
+| データルート | `https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/{sst_anl,sst_fct,subs}/`。時刻一覧は実況 `targetTimes.json`・予想 `targetTimes_fct.json`（`basetime`/`validtime`はUTC14桁。実況5日・予想30日。日ごと） |
+| タイル | `{ルート}/{基準}/none/{対象}/{深さ}/{種別}/{z}/{x}/{y}.png`（z=4〜9）。海面水温 `surf/sst`・平年差 `surf/sstanom`、水温 `{50,100,200,400}/temp`、海流 `50/curs`（流速）＋`50/curd`（流向）の2枚重ね |
+| 要素 | 実況: 海面水温・平年差・50/100/200/400m深水温・50m深海流／予想: 海面水温・100m深水温・50m深海流（約30日先） |
+| 凡例 | 公式の `https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_*.svg`（水温 wtmp、平年差 anom、流速 cur）。単位は水温・平年差が℃、流速がkt |
+| 海氷 | `kaikyou/seaice/tile/jp/index_anl.html`・`index_fct.html`。**5/29で発表終了・次回12/1**のため未対応 |
+| 備考 | 公式の app.bundle.js はgzipで配信される（展開してURL組み立てを確認）。波浪図（`waveinf/data/wavemesh/...`）も同じ形式で、深さは常に `surf`、種別は wavh/wind/windsea/swell/roughwv/curwv |
