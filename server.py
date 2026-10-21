@@ -18,7 +18,6 @@ import urllib.error
 import urllib.request
 import zipfile
 import zlib
-from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,13 +38,6 @@ FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲�
 # 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
 SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
 SST_AREA = "[(15):3:(50)][(115):3:(160)]"
-# 波高（Open-Meteo Marine API: 波浪モデルの有義波高。非商用は無料・キー不要。過去3日の解析値〜約5日先の予想）
-WAVE_API = "https://marine-api.open-meteo.com/v1/marine"
-WAVE_LAT = (15, 51)   # 緯度の範囲
-WAVE_LON = (120, 160)  # 経度の範囲
-WAVE_STEP = 2         # 格子の間隔（度）。無料枠（1分あたり600呼び出し相当）に収めるため2度
-WAVE_PAST_DAYS, WAVE_FORECAST_DAYS = 3, 5
-WAVE_REFRESH_SEC = 6 * 3600  # 取得し直す間隔（無料枠の節約）。API は1回に100地点ずつ問い合わせる
 # 気象庁 波浪実況・予想図（地図タイル。時刻一覧 targetTimes.json と {基準}/none/{対象}/surf/wavh/{z}/{x}/{y}.png）
 JMA_WAVE_BASE = "https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/"
 JMA_TILE_MAX = 800  # メモリに保持するタイル数の上限（1枚30KB前後）
@@ -198,77 +190,6 @@ def get_sst_jma(date):
         path.write_bytes(body)
         prune_cache()
     return body
-
-
-_wave = {"t": 0, "v": None}
-
-
-def load_wave_series():
-    """全格子点の波高時系列（3時間ごと）を取得する。WAVE_REFRESH_SEC キャッシュ。失敗時は前回の値で続行。
-
-    戻り値: {"times": ["YYYY-MM-DDTHH"(UTC)...], "ny","nx","lat0","lon0","h": [格子点ごとの100倍整数 or None の配列]}
-    """
-    with _lock:
-        if _wave["v"] and time.time() - _wave["t"] < WAVE_REFRESH_SEC:
-            return _wave["v"]
-        try:
-            pts = [(la, lo) for la in range(WAVE_LAT[0], WAVE_LAT[1] + 1, WAVE_STEP)
-                   for lo in range(WAVE_LON[0], WAVE_LON[1] + 1, WAVE_STEP)]
-            times, cols = None, []
-            for i in range(0, len(pts), 100):
-                chunk = pts[i:i + 100]
-                q = (f"?latitude={','.join(str(a) for a, _ in chunk)}&longitude={','.join(str(b) for _, b in chunk)}"
-                     f"&hourly=wave_height&past_days={WAVE_PAST_DAYS}&forecast_days={WAVE_FORECAST_DAYS}&timezone=UTC")
-                req = urllib.request.Request(WAVE_API + q, headers=UA)
-                for retry in range(4):
-                    try:
-                        with urllib.request.urlopen(req, timeout=60) as r:
-                            res = json.loads(r.read())
-                        break
-                    except urllib.error.HTTPError as e:
-                        if e.code != 429 or retry == 3:  # 呼び出し制限なら待って再試行
-                            raise
-                        time.sleep(65)
-                res = res if isinstance(res, list) else [res]
-                for loc in res:
-                    hr = loc["hourly"]
-                    if times is None:
-                        keep = [k for k, t in enumerate(hr["time"]) if int(t[11:13]) % 3 == 0]
-                        times = [hr["time"][k][:13] for k in keep]
-                    cols.append([None if hr["wave_height"][k] is None else round(hr["wave_height"][k] * 100) for k in keep])
-                time.sleep(1)  # 取得先への負荷を抑える
-            _wave.update(t=time.time(), v={"times": times, "ny": len(range(WAVE_LAT[0], WAVE_LAT[1] + 1, WAVE_STEP)),
-                                           "nx": len(range(WAVE_LON[0], WAVE_LON[1] + 1, WAVE_STEP)),
-                                           "lat0": WAVE_LAT[0], "lon0": WAVE_LON[0], "h": cols})
-        except Exception:
-            if not _wave["v"]:
-                raise
-        return _wave["v"]
-
-
-def get_wave_times():
-    """選べる時刻の一覧（3時間ごと・UTC）。過去72時間（実況）から予想の終わりまで。"""
-    ser = load_wave_series()
-    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    now -= timedelta(hours=now.hour % 3)
-    nows = now.strftime("%Y-%m-%dT%H")
-    return {"times": ser["times"], "now": nows if nows in ser["times"] else ser["times"][0],
-            "source": "Open-Meteo Marine（波浪モデル・2度格子に間引き）"}
-
-
-def get_wave(tm):
-    """指定時刻（YYYY-MM-DDTHH, UTC, 3時間刻み）の有義波高を JSON(bytes) で返す。
-
-    v は波高(m)を100倍した整数の配列（行優先・南→北、西→東）。陸・欠測は null。
-    """
-    ser = load_wave_series()
-    if tm not in ser["times"]:
-        raise ValueError("その時刻のデータはありません")
-    k = ser["times"].index(tm)
-    out = {"time": tm, "lat0": ser["lat0"], "lon0": ser["lon0"], "dlat": WAVE_STEP, "dlon": WAVE_STEP,
-           "ny": ser["ny"], "nx": ser["nx"], "v": [c[k] for c in ser["h"]],
-           "source": "Open-Meteo Marine API（波浪モデルの有義波高・2度格子）"}
-    return json.dumps(out, separators=(",", ":")).encode()
 
 
 _jwave_times = {"t": 0, "v": None}
@@ -542,11 +463,6 @@ class Handler(SimpleHTTPRequestHandler):
                 if src not in ("jma", "noaa"):
                     raise ValueError("src は jma か noaa です")
                 return self._send(get_sst(m.group(1), src), "application/json; charset=utf-8", max_age=3600)
-            if p == "/api/wave/times":
-                return self._send(json.dumps(get_wave_times()).encode(), "application/json; charset=utf-8", max_age=600)
-            m = re.fullmatch(r"/api/wave/(\d{4}-\d{2}-\d{2}T\d{2})", p)
-            if m:
-                return self._send(get_wave(m.group(1)), "application/json; charset=utf-8", max_age=3600)
             if p == "/api/jmawave/times":
                 return self._send(json.dumps(get_jma_wave_times()).encode(), "application/json; charset=utf-8", max_age=300)
             m = re.fullmatch(r"/api/jmawave/(\d{14})/(\d{14})/(wavh|windsea|swell)/([3-7])/(\d{1,3})/(\d{1,3})\.png", p)

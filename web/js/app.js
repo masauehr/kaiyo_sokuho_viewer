@@ -35,8 +35,6 @@
   const flowCache = new Map();
   const sst = SstLayer(map), sstCache = new Map();
   map.createPane("jwave").style.zIndex = 258; // 気象庁の波浪図タイル（水温250・波高255の上、流線400の下）
-  const wave = WaveLayer(map), waveCache = new Map();
-  let waveTimes = null, waveIdx = 0, waveTimer = null, waveToken = 0;
   let jwTimes = null, jwIdx = 0, jwTimer = null, jwLayer = null;
   const sstSrc = () => $("sstSrc").value;
   const toast = (msg, ms = 3500) => {
@@ -176,40 +174,12 @@
     } catch (e) { toast(e.message); }
   }
 
-  // 波高: UTC文字列(YYYY-MM-DDTHH)を日本時間の表示にする
+  // 気象庁の波浪図: UTC文字列(YYYY-MM-DDTHH)を日本時間の表示にする
   const jst = (tm) => {
     const d = new Date(`${tm}:00:00Z`), w = "日月火水木金土"[(d.getUTCDay() + (d.getUTCHours() >= 15 ? 1 : 0)) % 7];
     const j = new Date(d.getTime() + 9 * 3600e3);
     return `${j.getUTCMonth() + 1}/${j.getUTCDate()}(${w}) ${String(j.getUTCHours()).padStart(2, "0")}時`;
   };
-
-  async function loadWave(i) {
-    if (!$("waveOn").checked) return;
-    const my = ++waveToken;
-    try {
-      if (!waveTimes) {
-        const r = await fetch("/api/wave/times");
-        if (!r.ok) throw new Error("波高の時刻一覧の取得に失敗しました");
-        waveTimes = await r.json();
-        $("waveSlider").max = waveTimes.times.length - 1;
-        waveIdx = waveTimes.times.indexOf(waveTimes.now);
-      }
-      if (i !== undefined) waveIdx = Math.max(0, Math.min(waveTimes.times.length - 1, i));
-      $("waveSlider").value = waveIdx;
-      const tm = waveTimes.times[waveIdx];
-      let d = waveCache.get(tm);
-      if (!d) {
-        const r = await fetch(`/api/wave/${tm}`);
-        if (!r.ok) throw new Error("波高の取得に失敗しました");
-        d = await r.json();
-        waveCache.set(tm, d);
-      }
-      if (my !== waveToken) return;
-      wave.setData(d);
-      const kind = tm <= waveTimes.now ? "実況（解析値）" : "予想";
-      $("waveMeta").textContent = `${jst(tm)}　${kind}　${d.source}`;
-    } catch (e) { toast(e.message); }
-  }
 
   // 気象庁の波浪図: 14桁UTC(yyyyMMddHHmmss)を日本時間の表示にする
   const jwJst = (t) => jst(`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}T${t.slice(8, 10)}`);
@@ -237,8 +207,6 @@
   }
 
   function jwStop() { clearInterval(jwTimer); jwTimer = null; $("jwPlay").textContent = "▶ 再生"; }
-
-  function waveStop() { clearInterval(waveTimer); waveTimer = null; $("wavePlay").textContent = "▶ 再生"; }
 
   function setImage() {
     const i = issues[idx];
@@ -292,9 +260,8 @@
     ]).addTo(map);
     const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
     const t = $("sstOn").checked ? sst.at(e.latlng.lat, e.latlng.lng) : null;
-    const wh = $("waveOn").checked ? wave.at(e.latlng.lat, e.latlng.lng) : null;
     const msg = `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` +
-      (f ? `／流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : "") + (t !== null ? `／水温 ${t.toFixed(1)}℃` : "") + (wh !== null ? `／波高(モデル) ${wh.toFixed(1)}m` : "");
+      (f ? `／流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : "") + (t !== null ? `／水温 ${t.toFixed(1)}℃` : "");
     toast(msg, 8000);
     // 水深は外部(GEBCO)への問い合わせのため、取得できたら追記して再表示する
     fetch(`/api/depth?lat=${e.latlng.lat.toFixed(4)}&lon=${e.latlng.lng.toFixed(4)}`).then((x) => x.json()).then((d) => {
@@ -327,21 +294,6 @@
     $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
     $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
     $("sstStep").onchange = (e) => sst.setStep(Number(e.target.value));
-    $("waveLegend").innerHTML = wave.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}m〜</span>`).join("");
-    $("waveOn").onchange = (e) => { wave.show(e.target.checked); if (e.target.checked) loadWave(); else waveStop(); };
-    $("waveSlider").oninput = (e) => { waveStop(); loadWave(Number(e.target.value)); };
-    $("wavePrev").onclick = () => { waveStop(); loadWave(waveIdx - 1); };
-    $("waveNext").onclick = () => { waveStop(); loadWave(waveIdx + 1); };
-    $("waveNow").onclick = () => { waveStop(); if (waveTimes) loadWave(waveTimes.times.indexOf(waveTimes.now)); };
-    $("wavePlay").onclick = () => {
-      if (waveTimer) return waveStop();
-      if (!waveTimes) return;
-      $("wavePlay").textContent = "■ 停止";
-      waveTimer = setInterval(() => {
-        if (waveIdx >= waveTimes.times.length - 1) return waveStop();
-        loadWave(waveIdx + 1);
-      }, 700);
-    };
     $("jwLegend").innerHTML = [["#f2f2ff", "0m〜"], ["#a0d2ff", "1m〜"], ["#0035ff", "2m〜"], ["#faf500", "3m〜"], ["#ff9900", "4m〜"], ["#ff2800", "6m〜"], ["#b40068", "9m〜"]]
       .map(([c, v]) => `<span><i style="background:${c}"></i>${v}</span>`).join("");
     $("jwOn").onchange = (e) => {
@@ -366,7 +318,6 @@
       }, 1000);
     };
     $("jwOpacity").oninput = (e) => { if (jwLayer) jwLayer.setOpacity(Number(e.target.value)); };
-    $("waveOpacity").oninput = (e) => wave.setOpacity(Number(e.target.value));
     $("fit").onclick = () => map.setView([32, 137], 5);
     $("dlGeo").onclick = () => {
       if (!curGeo) return;
