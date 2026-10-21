@@ -41,34 +41,8 @@
     </section>
 
     <section>
-      <h2>海面水温</h2>
-      <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
-      <div class="row">
-        <select id="sstSrc">
-          <option value="jma">気象庁 MGDSST（0.25度・前日の値まで公開）</option>
-          <option value="noaa">NOAA（0.15度に間引き・2〜4日前の値まで公開）</option>
-        </select>
-      </div>
-      <div class="row">
-        <select id="sstDate">
-          <option value="link">日付: 海流図の解析日に合わせる</option>
-          <option value="latest">日付: 最新日（気象庁の実況図と同じ）</option>
-        </select>
-      </div>
-      <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
-      <div class="row">
-        <label><input type="checkbox" id="sstContour" checked> 等温線</label>
-        <select id="sstStep">
-          <option value="2">2℃ごと</option>
-          <option value="1">1℃ごと</option>
-        </select>
-      </div>
-      <div id="sstLegend" class="legend"></div>
-      <div id="sstMeta" class="meta"></div>
-      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃または1℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
-
-      <h3>気象庁の水温・海流図（画像・実況と予想）</h3>
-      <label class="row"><input type="checkbox" id="stOn"> 気象庁の図を重ねる</label>
+      <h2>海面水温・表層水温・海流</h2>
+      <label class="row"><input type="checkbox" id="stOn"> 気象庁の水温・海流図を重ねる</label>
       <div class="row">
         <select id="stEl">
           <optgroup label="海面水温">
@@ -103,7 +77,7 @@
       <div class="row"><span class="note">濃さ</span><input type="range" id="stOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
       <div id="stLegend" class="legend"></div>
       <div id="stMeta" class="meta"></div>
-      <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。上の水温（MGDSST／NOAA）とは<b>別のデータ</b>で、クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
+      <p class="note">気象庁の「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です（日ごと。実況は直近5日、予想は約30日先）。画像のため、地図クリックでの数値表示はできません。海氷の図は気象庁が12月1日の再開まで発表を休止しているため含めていません。出典：気象庁</p>
     </section>
 
     <section>
@@ -196,7 +170,6 @@
   <div id="toast" hidden></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/flow.js"></script>
-  <script src="js/sst.js"></script>
   <script src="js/jmatile.js"></script>
   <script src="js/app.js"></script>
 </body>

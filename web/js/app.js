@@ -33,7 +33,6 @@
   const map = L.map("map", { zoomControl: true }).setView([32, 137], 5);
   const flow = FlowLayer(map);
   const flowCache = new Map();
-  const sst = SstLayer(map), sstCache = new Map();
   // 気象庁の画像タイル: 波浪図（既定の表示）と、海面水温・表層水温・海流の図
   const JW = "https://www.data.jma.go.jp/waveinf/tile/jp/images/rect_", JK = "https://www.data.jma.go.jp/kaikyou/kaikyou/tile/jp/images/rect_";
   const lg = (base, rows) => rows.map(([n, v]) => [`${base}${n}.svg`, v]);
@@ -78,7 +77,6 @@
       curf: kai("subs_fct", "50", ["curs", "curd"], CUR, "kt"),
     },
   });
-  const sstSrc = () => $("sstSrc").value;
   const toast = (msg, ms = 3500) => {
     const t = $("toast");
     t.textContent = msg; t.hidden = false;
@@ -169,7 +167,6 @@
       renderAxis(g);
       if ($("imgOn").checked) setImage();
       loadFlow(g);
-      loadSst(g);
     } catch (e) { toast(e.message); stop(); }
   }
 
@@ -195,26 +192,6 @@
       if (my !== token) return;
       flow.setData(d);
       $("flowMeta").textContent = `流れ場の日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
-    } catch (e) { toast(e.message); }
-  }
-
-  // 表示中の号の解析対象日に合わせて海面水温を読み込む（未公開日なら最新日）
-  async function loadSst(g) {
-    if (!$("sstOn").checked) return;
-    // 「最新日」は日付を指定せず、サーバーが公開済みの最新日を返す
-    const date = $("sstDate").value === "latest" ? "" : analysisDate(g), my = token;
-    try {
-      const key = `${sstSrc()}:${date}`;
-      let d = sstCache.get(key);
-      if (!d) {
-        const res = await fetch(`/api/sst${date ? "/" + date : ""}?src=${sstSrc()}`);
-        if (!res.ok) throw new Error("海面水温の取得に失敗しました");
-        d = await res.json();
-        sstCache.set(key, d);
-      }
-      if (my !== token) return;
-      sst.setData(d);
-      $("sstMeta").textContent = `${d.source}　日付: ${d.date}${date && d.date !== date ? "（この号の解析日のデータは未公開のため最新日）" : ""}`;
     } catch (e) { toast(e.message); }
   }
 
@@ -269,11 +246,9 @@
       ...(r ? [L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" })] : []),
     ]).addTo(map);
     const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
-    const t = $("sstOn").checked ? sst.at(e.latlng.lat, e.latlng.lng) : null;
     const msg = [
       r ? `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` : `北緯${e.latlng.lat.toFixed(2)}度 東経${e.latlng.lng.toFixed(2)}度`,
       f ? `流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : null,
-      t !== null ? `水温 ${t.toFixed(1)}℃` : null,
     ].filter(Boolean).join("／");
     toast(msg, 8000);
     // 水深は外部(GEBCO)への問い合わせのため、取得できたら追記して再表示する
@@ -301,12 +276,6 @@
     $("imgOn").onchange = (e) => { $("imgBox").hidden = !e.target.checked; if (e.target.checked) setImage(); };
     $("flowLegend").innerHTML = flow.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}m/s〜</span>`).join("");
     $("flowOn").onchange = (e) => { flow.show(e.target.checked); if (e.target.checked && curGeo) loadFlow(curGeo); };
-    $("sstLegend").innerHTML = sst.legend.map(([v, c]) => `<span><i style="background:${c}"></i>${v}℃</span>`).join("");
-    $("sstOn").onchange = (e) => { sst.show(e.target.checked); if (e.target.checked && curGeo) loadSst(curGeo); };
-    $("sstSrc").onchange = $("sstDate").onchange = () => { if (curGeo) loadSst(curGeo); };
-    $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
-    $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
-    $("sstStep").onchange = (e) => sst.setStep(Number(e.target.value));
     $("currentOn").onchange = (e) => {
       $("currentBody").hidden = !e.target.checked;
       if (!e.target.checked) stop();

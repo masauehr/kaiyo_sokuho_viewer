@@ -35,9 +35,6 @@ CACHE_MAX_FILES = int(os.environ.get("CACHE_MAX_FILES", "80"))
 # 流れ場（NOAA CoastWatch ERDDAP: 海面高度から求めた表層地衡流 0.25度・日次）
 FLOW_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDNRTcurrentsDaily"
 FLOW_AREA = "[(15):(50)][(115):(160)]"  # 緯度・経度の切り出し範囲（日本近海）
-# 海面水温（NOAA CoastWatch ERDDAP: 日次・0.05度の合成水温。0.15度に間引いて配信）
-SST_BASE = "https://coastwatch.noaa.gov/erddap/griddap/noaacwBLENDEDsstDaily"
-SST_AREA = "[(15):3:(50)][(115):3:(160)]"
 # 気象庁の画像タイル（波浪実況・予想図／海面水温／表層水温・海流）。
 # 構成: {ルート}/{時刻一覧ファイル}、{ルート}/{基準}/none/{対象}/{深さ}/{種別}/{z}/{x}/{y}.png
 JMA_TILESETS = {
@@ -48,8 +45,6 @@ JMA_TILESETS = {
     "subs_fct": ("https://www.data.jma.go.jp/kaikyou/data/kaikyou/tile/subs/", "targetTimes_fct.json"),
 }
 JMA_TILE_MAX = 1500  # メモリに保持するタイル数の上限（1枚30〜100KB。古いものから捨てる）
-# 気象庁 MGDSST（全球日別海面水温 0.25度。前日の値まで公開。数値はgz圧縮テキスト）
-JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
 GEBCO_WMS = "https://wms.gebco.net/mapserv"
 UA = {"User-Agent": "kaiyo_sokuho_viewer/0.1 (personal use)"}
@@ -71,8 +66,8 @@ def fetch(url, timeout=40):
 
 
 def fetch_flow_url(url, timeout=60):
-    """ERDDAP から取得する（接続先は流れ場・水温のデータセット配下のみ）。"""
-    if not url.startswith((FLOW_BASE, SST_BASE)):
+    """ERDDAP から取得する（接続先は流れ場のデータセット配下のみ）。"""
+    if not url.startswith(FLOW_BASE):
         raise ValueError("許可されていないURLです")
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -126,79 +121,6 @@ def get_flow(date):
     return body
 
 
-_sst_last = {"t": 0, "v": None}
-
-
-def sst_last_date():
-    """水温データの最新日。1時間キャッシュ。"""
-    if time.time() - _sst_last["t"] < 3600 and _sst_last["v"]:
-        return _sst_last["v"]
-    txt = fetch_flow_url(SST_BASE + ".csv?time[(last)]")
-    d = re.search(r"(\d{4}-\d{2}-\d{2})T", txt).group(1)
-    _sst_last.update(t=time.time(), v=d)
-    return d
-
-
-def fetch_jma(url, timeout=60):
-    """気象庁(MGDSST)から取得する（接続先は JMA_SST_BASE 配下のみ）。"""
-    if not url.startswith(JMA_SST_BASE):
-        raise ValueError("許可されていないURLです")
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
-
-
-_jma_last = {"t": 0, "v": None}
-
-
-def jma_last_date():
-    """MGDSST の最新日（年ディレクトリの一覧から取得）。1時間キャッシュ。"""
-    if time.time() - _jma_last["t"] < 3600 and _jma_last["v"]:
-        return _jma_last["v"]
-    year = time.gmtime().tm_year
-    for y in (year, year - 1):  # 年初は前年の一覧から探す
-        try:
-            html = fetch_jma(f"{JMA_SST_BASE}{y}/").decode("utf-8", "replace")
-        except Exception:
-            continue
-        days = re.findall(r"mgd_sst_glb_D(\d{8})\.txt\.gz", html)
-        if days:
-            d = max(days)
-            d = f"{d[:4]}-{d[4:6]}-{d[6:]}"
-            _jma_last.update(t=time.time(), v=d)
-            return d
-    raise RuntimeError("気象庁の海面水温の最新日が取得できません")
-
-
-def get_sst_jma(date):
-    """気象庁 MGDSST を日本近海に切り出す。v は水温(℃)×100 の整数（南→北、西→東）。"""
-    last = jma_last_date()
-    if not date or date > last:
-        date = last
-    path = CACHE / f"sst_jma_{date}.json"
-    with _lock:
-        if path.exists():
-            return path.read_bytes()
-        ymd = date.replace("-", "")
-        raw = gzip.decompress(fetch_jma(f"{JMA_SST_BASE}{ymd[:4]}/mgd_sst_glb_D{ymd}.txt.gz", timeout=90))
-        lines = raw.decode("ascii", "replace").split("\n")[1:]  # 1行目はヘッダ（年月日）
-        # 行は北→南（89.875N〜）、列は西→東（0.125E〜）。北緯15〜50・東経115〜160 を切り出す
-        i0, i1, j0, j1 = 160, 300, 460, 640
-        rows = []
-        for i in range(i1 - 1, i0 - 1, -1):  # 南→北の順に並べ替える
-            ln = lines[i]
-            for j in range(j0, j1):
-                tok = ln[3 * j:3 * j + 3].strip()
-                rows.append(None if tok in ("888", "999", "") else int(tok) * 10)
-        out = {"date": date, "lat0": round(89.875 - 0.25 * (i1 - 1), 3), "lon0": 0.125 + 0.25 * j0,
-               "dlat": 0.25, "dlon": 0.25, "ny": i1 - i0, "nx": j1 - j0, "v": rows,
-               "source": "気象庁 MGDSST（全球日別海面水温）"}
-        body = json.dumps(out, separators=(",", ":")).encode()
-        path.write_bytes(body)
-        prune_cache()
-    return body
-
-
 _jtile_times = {}  # データセット名 → {"t": 取得時刻, "v": 一覧}
 _jtile_cache = {}  # キー → bytes（挿入順で古いものから捨てる）
 
@@ -244,49 +166,6 @@ def get_jma_tile(ds, base, valid, depth, kind, z, x, y):
     _jtile_cache[key] = body
     while len(_jtile_cache) > JMA_TILE_MAX:
         _jtile_cache.pop(next(iter(_jtile_cache)))
-    return body
-
-
-def get_sst(date, src="jma"):
-    """海面水温を JSON(bytes) で返す。src は "jma"（気象庁・既定）か "noaa"。"""
-    if src == "jma":
-        return get_sst_jma(date)
-    return get_sst_noaa(date)
-
-
-def get_sst_noaa(date):
-    """NOAA の海面水温（最新日より後なら最新日）。
-
-    v は水温(℃)を100倍した整数の配列（行優先・南→北、西→東）。海氷・陸・欠測は null。
-    """
-    last = sst_last_date()
-    if not date or date > last:
-        date = last
-    path = CACHE / f"sst_noaa_{date}.json"
-    with _lock:
-        if path.exists():
-            return path.read_bytes()
-        url = f"{SST_BASE}.csv?analysed_sst[({date}T12:00:00Z)]{SST_AREA}"
-        rows = fetch_flow_url(url, timeout=120).strip().split("\n")[2:]
-        lats, lons, v = [], [], []
-        for ln in rows:
-            c = ln.split(",")
-            lat, lon = float(c[1]), float(c[2])
-            if not lats or lat != lats[-1]:
-                lats.append(lat)
-            if len(lats) == 1:
-                lons.append(lon)
-            try:
-                v.append(round((float(c[3]) - 273.15) * 100))
-            except ValueError:  # NaN
-                v.append(None)
-        out = {"date": date, "lat0": lats[0], "lon0": lons[0],
-               "dlat": round(lats[1] - lats[0], 4), "dlon": round(lons[1] - lons[0], 4),
-               "ny": len(lats), "nx": len(lons), "v": v,
-               "source": "NOAA CoastWatch 海面水温 (Geo-polar Blended, 日次)"}
-        body = json.dumps(out, separators=(",", ":")).encode()
-        path.write_bytes(body)
-        prune_cache()
     return body
 
 
@@ -469,12 +348,6 @@ class Handler(SimpleHTTPRequestHandler):
             m = re.fullmatch(r"/api/flow(?:/(\d{4}-\d{2}-\d{2}))?", p)
             if m:
                 return self._send(get_flow(m.group(1)), "application/json; charset=utf-8", max_age=3600)
-            m = re.fullmatch(r"/api/sst(?:/(\d{4}-\d{2}-\d{2}))?", p)
-            if m:
-                src = parse_qs(urlparse(self.path).query).get("src", ["jma"])[0]
-                if src not in ("jma", "noaa"):
-                    raise ValueError("src は jma か noaa です")
-                return self._send(get_sst(m.group(1), src), "application/json; charset=utf-8", max_age=3600)
             m = re.fullmatch(r"/api/jmatile/times/(wave|sst_anl|sst_fct|subs_anl|subs_fct)", p)
             if m:
                 return self._send(json.dumps(get_jma_tile_times(m.group(1))).encode(), "application/json; charset=utf-8", max_age=300)
