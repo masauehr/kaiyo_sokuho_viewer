@@ -26,6 +26,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 比較（重ね描き） | 1・5・20・60・120号前の流線を灰色破線で重ねる（蛇行・接岸の変化比較） |
 | 海面水温 | 出典（気象庁MGDSST／NOAA）切替・日付（海流図の解析日に合わせる／最新日）・濃さ・等温線（2℃／1℃ごとを選択、℃ラベル付き） |
 | 波高（実況・予想） | 有義波高の色塗り（0〜10m〜）。スライダー／◀▶で3時間刻み、▶再生、「現在」ボタン、濃さ。日本時間で表示し「実況（解析値）／予想」を明示 |
+| 気象庁の波浪図 | 気象庁「波浪実況・予想図」のタイルを重ねる。要素（波の高さ／風浪／うねり）・時刻スライダー（6時間ごと・過去の解析〜約2日先）・▶再生・「現在」（最新の解析）・濃さ。等波高線付き。上の「波高」（Open-Meteo）とは別データ |
 | 流れ場（参考） | NOAA表層地衡流の粒子アニメ。色は流速（0〜1.5m/s〜） |
 | 流軸の通過緯度 | 東経125〜143度（2度刻み）で黒潮が通る緯度（表示中の号から計算） |
 | 地図の操作 | 背景地図切替／公式海流図(PNG)を別枠表示／GeoJSON保存／全体表示 |
@@ -46,6 +47,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 | 海面水温（切替） | NOAA CoastWatch ERDDAP `noaacwBLENDEDsstDaily` | griddap CSV（0.15度に間引き） | 日別・2〜4日前の値まで公開 | NOAA CoastWatch |
 | 流れ場（参考） | NOAA CoastWatch ERDDAP `noaacwBLENDEDNRTcurrentsDaily` | griddap CSV | 日別・0.25度・約2日前の値まで公開。地衡流のみ | NOAA CoastWatch / AVISO+ |
 | 波高（実況・予想） | Open-Meteo Marine API `marine-api.open-meteo.com/v1/marine`（DWD等の波浪モデル。非商用は無料・キー不要） | 2度格子（緯度15〜51・経度120〜160）を100地点ずつ取得し、3時間ごとに間引く。6時間キャッシュ | 過去約3日の解析値〜約5日先の予想 | Open-Meteo（DWD等） |
+| 波浪図（気象庁） | 気象庁 波浪実況・予想図 `www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/`（`targetTimes.json` と `{基準}/none/{対象}/surf/{wavh\|windsea\|swell}/{z}/{x}/{y}.png`、z=3〜7） | `/api/jmawave/...` が中継（時刻は一覧にあるものだけ許可、タイルはメモリ800枚保持） | 6時間ごと・約3日前の解析〜約2日先の予想 | 気象庁 |
 | 海底地形（背景） | GEBCO WMS `GEBCO_LATEST_2` | Leaflet WMS | 15秒格子 | GEBCO Compilation Group（航行・安全用途不可） |
 | 海洋図（背景） | Esri World_Ocean_Base/Reference | タイル | - | Esri ほか |
 | 水深（地点） | GEBCO GetFeatureInfo | `/api/depth` が中継 | - | GEBCO |
@@ -71,10 +73,12 @@ cd ~/projects/kaiyo_sokuho_viewer
 | `/api/sst[/YYYY-MM-DD]?src=jma\|noaa` | 海面水温（℃×100の整数格子、欠測はnull） |
 | `/api/wave/times` | 波高の選べる時刻一覧（UTC・3時間刻み）と現在時刻 |
 | `/api/wave/{YYYY-MM-DDTHH}` | その時刻の波高格子（m×100の整数、陸・欠測はnull、2度格子） |
+| `/api/jmawave/times` | 気象庁の波浪図の時刻一覧（基準時刻・対象時刻、UTC14桁） |
+| `/api/jmawave/{基準}/{対象}/{wavh\|windsea\|swell}/{z}/{x}/{y}.png` | 波浪図タイルの中継（範囲外は透明PNG）。画面側は Leaflet の tileLayer で読む |
 | `/api/depth?lat=&lon=` | 地点の標高/水深(m)。海は負 |
 | `/healthz` | ヘルスチェック |
 
-共通: JSONはgzip、接続先は許可リスト（海保・ERDDAP・気象庁・Open-Meteo・GEBCOのみ）、入力不正は400、取得失敗は502、同時アクセスは排他制御で外部取得を1回に集約。
+共通: JSONはgzip、接続先は許可リスト（海保・ERDDAP・気象庁（MGDSST・波浪図）・Open-Meteo・GEBCOのみ）、入力不正は400、取得失敗は502、同時アクセスは排他制御で外部取得を1回に集約。
 
 ## 4. 構成
 
@@ -117,6 +121,7 @@ kaiyo_sokuho_viewer/
 - GEBCO の GetFeatureInfo は範囲が狭いと空返し → 0.2度四方・100pxで中心を問い合わせる。
 - **波高の取得元（2026-10-21）**: 当初はNOAA WW3（ERDDAP `NWW3_Global_Best`、0.5度・取得確認済み）で実装したが、NOAAのPFEG系サーバーが接続できず（SSLハンドシェイクのタイムアウト）Open-Meteoへ差し替えた。気象庁の波浪GPVは気象業務支援センター配信（有償）で公開サーバーでは使えない。
 - Open-Meteoは呼び出し制限（無料枠: 1分600・1時間5000・1日10000呼び出し相当）があり、地点数に比例して消費する。1度格子は1,476地点で超過（429）したため2度格子（約400地点）にし、429は65秒待って最大3回再試行、6時間キャッシュ、失敗時は前回値で続行。非商用が条件で、DWD・Open-Meteoの出典表記が必要。
+- **気象庁の波浪図の取り方（2026-10-21調査）**: 公式ページ `waveinf/tile/jp/` は JMATile（Leaflet）で、設定 `table/umimesh.properties.xml` の `dataRootUrl` と `targetTimes.json` から画像タイルURLが決まる。数値（GPV）は有償配信のため、**色付きの画像タイル**として表示するだけで、クリック地点の数値は取れない。旧「外洋/沿岸波浪図」の画像（`image/ocean/s_awpn.png` 等）は更新が古く不採用。沿岸53海域の最大波高・周期（CSV）は未対応。
 - 水温NOAAの時刻は12:00Z、単位はケルビン（℃へ変換）。
 - 等温線: 画素の縁取りではなく、格子からマーチングスクエア法で作った折れ線。ラベルは画面距離320pxごと・短い線は無印・近接70px以内は間引き。
 
@@ -127,6 +132,7 @@ kaiyo_sokuho_viewer/
 
 | 日付 | 版 | 内容 |
 |---|---|---|
+| 2026-10-21 | v0.4 | 気象庁の波浪図（波浪実況・予想図のタイル）を追加。波の高さ／風浪／うねり、時刻スライダー、再生 |
 | 2026-10-21 | v0.3 | 波高レイヤー（実況・予想）を追加。Open-Meteo Marine API・2度格子・3時間刻みスライダー・再生。クリックで波高表示。気象庁の波浪図（実況図・予想図）の追加は次段階 |
 | 2026-10-19 | v0.1 | 新規作成。海保GIS（号別zip→GeoJSON）、号選択・再生・重ね描き・黒潮通過緯度・最寄り黒潮距離、Render対応（render.yaml・healthz・gzip・排他制御） |
 | 2026-10-19 | v0.2 | 流れ場（NOAA表層地衡流の粒子表示）、海面水温（NOAA→気象庁MGDSSTを既定に。出典切替）、等温線（ベクトル化・℃ラベル・2℃/1℃選択）、海底地形の背景図（GEBCO・Esri）、クリックで水温・水深・流速、水温の日付選択（解析日に合わせる／最新日） |

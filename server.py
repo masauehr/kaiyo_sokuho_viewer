@@ -17,6 +17,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+import zlib
 from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -45,6 +46,9 @@ WAVE_LON = (120, 160)  # 経度の範囲
 WAVE_STEP = 2         # 格子の間隔（度）。無料枠（1分あたり600呼び出し相当）に収めるため2度
 WAVE_PAST_DAYS, WAVE_FORECAST_DAYS = 3, 5
 WAVE_REFRESH_SEC = 6 * 3600  # 取得し直す間隔（無料枠の節約）。API は1回に100地点ずつ問い合わせる
+# 気象庁 波浪実況・予想図（地図タイル。時刻一覧 targetTimes.json と {基準}/none/{対象}/surf/wavh/{z}/{x}/{y}.png）
+JMA_WAVE_BASE = "https://www.data.jma.go.jp/waveinf/data/wavemesh/tile/wavemesh/"
+JMA_TILE_MAX = 800  # メモリに保持するタイル数の上限（1枚30KB前後）
 # 気象庁 MGDSST（全球日別海面水温 0.25度。前日の値まで公開。数値はgz圧縮テキスト）
 JMA_SST_BASE = "https://www.data.jma.go.jp/gmd/goos/data/pub/JMA-product/mgd_sst_glb_D/"
 # 水深（GEBCO WMS の GetFeatureInfo。海底地形は背景図として画面側でWMS表示）
@@ -267,6 +271,49 @@ def get_wave(tm):
     return json.dumps(out, separators=(",", ":")).encode()
 
 
+_jwave_times = {"t": 0, "v": None}
+_jwave_tiles = {}  # キー → bytes（挿入順で古いものから捨てる）
+
+
+def get_jma_wave_times():
+    """気象庁の波浪図の時刻一覧 [{basetime, validtime}]（UTC, 14桁）。10分キャッシュ。"""
+    if _jwave_times["v"] and time.time() - _jwave_times["t"] < 600:
+        return _jwave_times["v"]
+    try:
+        req = urllib.request.Request(JMA_WAVE_BASE + "targetTimes.json", headers=UA)
+        with urllib.request.urlopen(req, timeout=30) as r:
+            v = json.loads(r.read())
+        _jwave_times.update(t=time.time(), v=v)
+    except Exception:
+        if not _jwave_times["v"]:
+            raise
+    return _jwave_times["v"]
+
+
+def get_jma_wave_tile(base, valid, el, z, x, y):
+    """波浪図タイルPNG。時刻は一覧にあるものだけ許可し、メモリに保持して気象庁への負荷を抑える。"""
+    if not any(t["basetime"] == base and t["validtime"] == valid for t in get_jma_wave_times()):
+        raise ValueError("その時刻の図はありません")
+    key = (base, valid, el, z, x, y)
+    hit = _jwave_tiles.get(key)
+    if hit is not None:
+        return hit
+    url = f"{JMA_WAVE_BASE}{base}/none/{valid}/surf/{el}/{z}/{x}/{y}.png"
+    req = urllib.request.Request(url, headers=UA)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            body = r.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 404):  # 範囲外タイルは透明扱い
+            body = b""
+        else:
+            raise
+    _jwave_tiles[key] = body
+    while len(_jwave_tiles) > JMA_TILE_MAX:
+        _jwave_tiles.pop(next(iter(_jwave_tiles)))
+    return body
+
+
 def get_sst(date, src="jma"):
     """海面水温を JSON(bytes) で返す。src は "jma"（気象庁・既定）か "noaa"。"""
     if src == "jma":
@@ -447,6 +494,19 @@ def get_image(year, no):
     return path.read_bytes()
 
 
+def _transparent_png():
+    """1x1 の透明PNG（範囲外タイルの代わり）。"""
+    def chunk(t, d):
+        c = t + d
+        return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c))
+    raw = zlib.compress(b"\x00\x00\x00\x00\x00")
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", raw) + chunk(b"IEND", b""))
+
+
+TRANSPARENT_PNG = _transparent_png()
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=str(WEB), **k)
@@ -487,6 +547,14 @@ class Handler(SimpleHTTPRequestHandler):
             m = re.fullmatch(r"/api/wave/(\d{4}-\d{2}-\d{2}T\d{2})", p)
             if m:
                 return self._send(get_wave(m.group(1)), "application/json; charset=utf-8", max_age=3600)
+            if p == "/api/jmawave/times":
+                return self._send(json.dumps(get_jma_wave_times()).encode(), "application/json; charset=utf-8", max_age=300)
+            m = re.fullmatch(r"/api/jmawave/(\d{14})/(\d{14})/(wavh|windsea|swell)/([3-7])/(\d{1,3})/(\d{1,3})\.png", p)
+            if m:
+                body = get_jma_wave_tile(*m.groups())
+                if not body:  # 範囲外は 1x1 の透明PNG
+                    body = TRANSPARENT_PNG
+                return self._send(body, "image/png", max_age=1800)
             if p == "/api/depth":
                 q = parse_qs(urlparse(self.path).query)
                 lat, lon = float(q["lat"][0]), float(q["lon"][0])

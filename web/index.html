@@ -99,6 +99,31 @@
     </section>
 
     <section>
+      <h2>気象庁の波浪図（実況・予想）</h2>
+      <label class="row"><input type="checkbox" id="jwOn"> 気象庁の波浪図を重ねる</label>
+      <div class="row">
+        <select id="jwEl">
+          <option value="wavh">波の高さ</option>
+          <option value="windsea">風浪の高さ</option>
+          <option value="swell">うねりの高さ</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="jwPrev" title="前の時刻">◀</button>
+        <input type="range" id="jwSlider" min="0" max="0" value="0">
+        <button id="jwNext" title="次の時刻">▶</button>
+      </div>
+      <div class="row">
+        <button id="jwPlay">▶ 再生</button>
+        <button id="jwNow">現在</button>
+      </div>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
+      <div id="jwLegend" class="legend"></div>
+      <div id="jwMeta" class="meta"></div>
+      <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。上の「波高（実況・予想）」（Open-Meteo）とは<b>別のデータ</b>です。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
+    </section>
+
+    <section>
       <h2>流れ場（参考・モデル外）</h2>
       <label class="row"><input type="checkbox" id="flowOn"> 表層の流れを粒子で表示</label>
       <div id="flowLegend" class="legend"></div>
