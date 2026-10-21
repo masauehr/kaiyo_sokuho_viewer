@@ -54,7 +54,7 @@
     if (tile.bringToBack) tile.bringToBack();
     if (map.attributionControl && !map._kaihoAttr) {
       map._kaihoAttr = true;
-      map.attributionControl.addAttribution('海流: <a href="https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html">海上保安庁 海洋速報</a>');
+      map.attributionControl.addAttribution('波浪図・水温: <a href="https://www.data.jma.go.jp/waveinf/tile/jp/index.html">気象庁</a>／海流: <a href="https://www1.kaiho.mlit.go.jp/KANKYO/KAIYO/qboc/kurosio-num.html">海上保安庁 海洋速報</a>');
     }
   }
 
@@ -112,7 +112,9 @@
       curGeo = g;
       if (curLayer) map.removeLayer(curLayer);
       if (ghostLayer) { map.removeLayer(ghostLayer); ghostLayer = null; }
-      if ($("ghostOn").checked) {
+      curLayer = null;
+      const cur = $("currentOn").checked; // 海流は既定で非表示（データは水温の日付連動・クリック時の計算用に読み込んでおく）
+      if (cur && $("ghostOn").checked) {
         const gi = issues[idx - Number($("ghostBack").value)];
         if (gi) {
           const gg = await loadGeo(gi);
@@ -120,7 +122,7 @@
           ghostLayer = drawGeo(gg, true);
         }
       }
-      curLayer = drawGeo(g, false);
+      if (cur) curLayer = drawGeo(g, false);
       const m = g.meta || {};
       $("meta").textContent = `${m.issueNo || issue.label}　発行 ${m.issueDate || ""}　解析対象 ${m.analysisDate || ""}`;
       renderAxis(g);
@@ -288,18 +290,21 @@
   }
 
   map.on("click", (e) => {
-    if (!curGeo) return;
     if (clickLayer) map.removeLayer(clickLayer);
-    const r = nearestKuroshio(e.latlng.lat, e.latlng.lng);
-    if (!r) return toast("この号には黒潮の流線がありません");
+    const showCur = $("currentOn").checked && curGeo; // 海流を表示しているときだけ最寄り黒潮までの距離を出す
+    const r = showCur ? nearestKuroshio(e.latlng.lat, e.latlng.lng) : null;
+    if (showCur && !r) return toast("この号には黒潮の流線がありません");
     clickLayer = L.layerGroup([
       L.circleMarker(e.latlng, { radius: 5, color: "#000", fillOpacity: 1 }),
-      L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" }),
+      ...(r ? [L.polyline([e.latlng, [r.lat, r.lon]], { color: "#000", weight: 1.5, dashArray: "4 4" })] : []),
     ]).addTo(map);
     const f = $("flowOn").checked ? flow.at(e.latlng.lat, e.latlng.lng) : null;
     const t = $("sstOn").checked ? sst.at(e.latlng.lat, e.latlng.lng) : null;
-    const msg = `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` +
-      (f ? `／流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : "") + (t !== null ? `／水温 ${t.toFixed(1)}℃` : "");
+    const msg = [
+      r ? `最寄りの黒潮まで 約${r.nm.toFixed(0)}海里（約${(r.nm * 1.852).toFixed(0)}km）・${r.dir}方向` : `北緯${e.latlng.lat.toFixed(2)}度 東経${e.latlng.lng.toFixed(2)}度`,
+      f ? `流れ(モデル) ${f.kt.toFixed(1)}ノット・${f.dir}向き` : null,
+      t !== null ? `水温 ${t.toFixed(1)}℃` : null,
+    ].filter(Boolean).join("／");
     toast(msg, 8000);
     // 水深は外部(GEBCO)への問い合わせのため、取得できたら追記して再表示する
     fetch(`/api/depth?lat=${e.latlng.lat.toFixed(4)}&lon=${e.latlng.lng.toFixed(4)}`).then((x) => x.json()).then((d) => {
@@ -332,6 +337,11 @@
     $("sstOpacity").oninput = (e) => sst.setOpacity(Number(e.target.value));
     $("sstContour").onchange = (e) => sst.setContour(e.target.checked);
     $("sstStep").onchange = (e) => sst.setStep(Number(e.target.value));
+    $("currentOn").onchange = (e) => {
+      $("currentBody").hidden = !e.target.checked;
+      if (!e.target.checked) stop();
+      show(idx);
+    };
     $("jwLegend").innerHTML = [["#f2f2ff", "0m〜"], ["#a0d2ff", "1m〜"], ["#0035ff", "2m〜"], ["#faf500", "3m〜"], ["#ff9900", "4m〜"], ["#ff2800", "6m〜"], ["#b40068", "9m〜"]]
       .map(([c, v]) => `<span><i style="background:${c}"></i>${v}</span>`).join("");
     $("jwOn").onchange = (e) => {
@@ -379,6 +389,7 @@
       issues = (await res.json()).issues;
       if (!issues.length) throw new Error("号数がありません");
       initUi();
+      loadJw(); // 既定の表示は気象庁の波浪図
       await show(issues.length - 1);
     } catch (e) { toast(e.message, 10000); }
   })();

@@ -1,8 +1,8 @@
-# 海洋速報 海流図ビューア（kaiyo_sokuho_viewer）
+# 海況ビューア（kaiyo_sokuho_viewer）
 
 詳しくは [kaiyo-sokuho-viewer.md](kaiyo-sokuho-viewer.md) を参照。
 
-海上保安庁 海洋情報部の「海洋速報」の**海流GIS情報**（shape/KML）を取得し、黒潮・対馬暖流・津軽暖流・宗谷暖流の流線を地図上に表示するWebアプリです。
+**既定の表示は気象庁の波浪実況・予想図**です。画面は上から「気象庁の波浪図」「海面水温」「海上保安庁の海流（既定は非表示）」の順で、海流を表示すると、海上保安庁 海洋情報部の「海洋速報」の**海流GIS情報**（shape/KML）を取得し、黒潮・対馬暖流・津軽暖流・宗谷暖流の流線を地図上に表示するWebアプリです。
 
 - 公開版: https://kaiyo-sokuho-viewer.onrender.com/
 （Render無料プラン。スリープ復帰に30〜60秒かかる場合あり）
@@ -21,7 +21,7 @@ cd ~/projects/kaiyo_sokuho_viewer
 標準ライブラリのみ（追加インストール不要）。ブラウザからは海保サイトをCORSで直接取得できないため、
 `server.py` が中継と変換（GeoJSON・流れ場・水温）を行い、`data/cache/` にキャッシュします。API一覧・データソース・設計判断は [kaiyo-sokuho-viewer.md](kaiyo-sokuho-viewer.md) にまとめています。
 
-## 現在の機能（v0.2）
+## 現在の機能（v0.7。表の並びは画面の順とは別）
 
 | 機能 | 内容 |
 |---|---|

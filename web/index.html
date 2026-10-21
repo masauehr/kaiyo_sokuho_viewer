@@ -3,15 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>海洋速報 海流図ビューア</title>
+  <title>海況ビューア（波浪・水温・海流）</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <aside id="panel">
-    <h1>海洋速報 海流図</h1>
-    <p class="sub">出典：海上保安庁 海洋情報部</p>
+    <h1>海況ビューア</h1>
+    <p class="sub">出典：気象庁（波浪図・水温）／海上保安庁 海洋情報部（海流）ほか</p>
 
+    <section>
+      <h2>気象庁の波浪図（実況・予想）</h2>
+      <label class="row"><input type="checkbox" id="jwOn" checked> 気象庁の波浪図を重ねる</label>
+      <div class="row">
+        <select id="jwEl">
+          <option value="wavh">波の高さ</option>
+          <option value="windsea">風浪の高さ</option>
+          <option value="swell">うねりの高さ</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="jwPrev" title="前の時刻">◀</button>
+        <input type="range" id="jwSlider" min="0" max="0" value="0">
+        <button id="jwNext" title="次の時刻">▶</button>
+      </div>
+      <div class="row">
+        <button id="jwPlay">▶ 再生</button>
+        <button id="jwNow">現在</button>
+      </div>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
+      <div id="jwLegend" class="legend"></div>
+      <div id="jwMeta" class="meta"></div>
+      <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
+    </section>
+
+    <section>
+      <h2>海面水温</h2>
+      <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
+      <div class="row">
+        <select id="sstSrc">
+          <option value="jma">気象庁 MGDSST（0.25度・前日の値まで公開）</option>
+          <option value="noaa">NOAA（0.15度に間引き・2〜4日前の値まで公開）</option>
+        </select>
+      </div>
+      <div class="row">
+        <select id="sstDate">
+          <option value="link">日付: 海流図の解析日に合わせる</option>
+          <option value="latest">日付: 最新日（気象庁の実況図と同じ）</option>
+        </select>
+      </div>
+      <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
+      <div class="row">
+        <label><input type="checkbox" id="sstContour" checked> 等温線</label>
+        <select id="sstStep">
+          <option value="2">2℃ごと</option>
+          <option value="1">1℃ごと</option>
+        </select>
+      </div>
+      <div id="sstLegend" class="legend"></div>
+      <div id="sstMeta" class="meta"></div>
+      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃または1℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
+    </section>
+
+    <section>
+      <h2>海上保安庁の海流</h2>
+      <label class="row"><input type="checkbox" id="currentOn"> 海流（黒潮など）を表示</label>
+      <p class="note">既定は非表示です。オンにすると下の操作（号の選択・再生・比較・流軸の通過緯度）が使えます。</p>
+    </section>
+
+    <div id="currentBody" hidden>
     <section>
       <h2>号の選択</h2>
       <div class="row">
@@ -53,57 +113,11 @@
     </section>
 
     <section>
-      <h2>海面水温</h2>
-      <label class="row"><input type="checkbox" id="sstOn"> 海面水温を重ねる</label>
-      <div class="row">
-        <select id="sstSrc">
-          <option value="jma">気象庁 MGDSST（0.25度・前日の値まで公開）</option>
-          <option value="noaa">NOAA（0.15度に間引き・2〜4日前の値まで公開）</option>
-        </select>
-      </div>
-      <div class="row">
-        <select id="sstDate">
-          <option value="link">日付: 海流図の解析日に合わせる</option>
-          <option value="latest">日付: 最新日（気象庁の実況図と同じ）</option>
-        </select>
-      </div>
-      <div class="row"><span class="note">濃さ</span><input type="range" id="sstOpacity" min="0.2" max="1" step="0.05" value="0.7"></div>
-      <div class="row">
-        <label><input type="checkbox" id="sstContour" checked> 等温線</label>
-        <select id="sstStep">
-          <option value="2">2℃ごと</option>
-          <option value="1">1℃ごと</option>
-        </select>
-      </div>
-      <div id="sstLegend" class="legend"></div>
-      <div id="sstMeta" class="meta"></div>
-      <p class="note">気象庁の全球日別海面水温（MGDSST：衛星・ブイ・船舶を統合）が既定です。NOAA の日次合成水温にも切り替えられます。等温線は2℃または1℃ごとで、黒潮の北縁や渦は等温線の密な所に現れます。</p>
+      <h2>流軸の通過緯度（黒潮）</h2>
+      <div id="axisTable" class="axis"></div>
+      <p class="note">東経ごとに黒潮の流線が通る緯度を、表示中の号から計算します。</p>
     </section>
-
-    <section>
-      <h2>気象庁の波浪図（実況・予想）</h2>
-      <label class="row"><input type="checkbox" id="jwOn"> 気象庁の波浪図を重ねる</label>
-      <div class="row">
-        <select id="jwEl">
-          <option value="wavh">波の高さ</option>
-          <option value="windsea">風浪の高さ</option>
-          <option value="swell">うねりの高さ</option>
-        </select>
-      </div>
-      <div class="row">
-        <button id="jwPrev" title="前の時刻">◀</button>
-        <input type="range" id="jwSlider" min="0" max="0" value="0">
-        <button id="jwNext" title="次の時刻">▶</button>
-      </div>
-      <div class="row">
-        <button id="jwPlay">▶ 再生</button>
-        <button id="jwNow">現在</button>
-      </div>
-      <div class="row"><span class="note">濃さ</span><input type="range" id="jwOpacity" min="0.2" max="1" step="0.05" value="0.75"></div>
-      <div id="jwLegend" class="legend"></div>
-      <div id="jwMeta" class="meta"></div>
-      <p class="note">気象庁の「波浪実況・予想図」（数値波浪モデルの有義波高の分布）です。過去の解析と約2日先までの予想を6時間ごとに表示します。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
-    </section>
+    </div>
 
     <section>
       <h2>流れ場（参考・モデル外）</h2>
@@ -111,12 +125,6 @@
       <div id="flowLegend" class="legend"></div>
       <div id="flowMeta" class="meta"></div>
       <p class="note">NOAA CoastWatch の表層地衡流（海面高度から計算・日次・約25km格子）です。<b>海上保安庁の海流図とは別のデータ</b>で、沿岸の細かい流れや小さな渦は表せず、流軸とずれることがあります。</p>
-    </section>
-
-    <section>
-      <h2>流軸の通過緯度（黒潮）</h2>
-      <div id="axisTable" class="axis"></div>
-      <p class="note">東経ごとに黒潮の流線が通る緯度を、表示中の号から計算します。</p>
     </section>
 
     <section>
