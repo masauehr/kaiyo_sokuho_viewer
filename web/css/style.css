@@ -102,6 +102,15 @@ select.segd.all { display:none; }
 .seg.all .segrow { display:flex; flex-wrap:wrap; gap:4px; flex:1 1 100%; }
 .seg.all button { flex:1 1 auto; white-space:normal; padding:4px 8px; }
 .seg.all button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+/* パソコン用: 分類（親・太字のタブ風）と項目（子・枠で囲んだ小さな丸ボタン）を区別する */
+body:not(.mobile) .seg.all { gap:8px; }
+body:not(.mobile) .seg.all .cat { gap:0; }
+body:not(.mobile) .seg.all .cat button { border-width:2px; border-radius:0; font-weight:700; font-size:13px; padding:6px 4px; margin-left:-2px; }
+body:not(.mobile) .seg.all .cat button:first-child { border-radius:8px 0 0 8px; margin-left:0; }
+body:not(.mobile) .seg.all .cat button:last-child { border-radius:0 8px 8px 0; }
+body:not(.mobile) .seg.all .item { padding:6px 8px; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:4px; background:#00000008; }
+body:not(.mobile) .seg.all .item button { border-radius:999px; font-size:12px; padding:2px 10px; font-weight:400; }
+body:not(.mobile) .seg.all .item button.on { font-weight:600; }
 body.mobile select.segd { display:none; }
 body.mobile .seg { display:flex; flex-wrap:wrap; gap:4px; flex:1; min-width:0; }
 body.mobile .segrow { display:flex; flex-wrap:wrap; gap:4px; flex:1 1 100%; }

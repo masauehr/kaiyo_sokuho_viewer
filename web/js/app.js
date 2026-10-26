@@ -69,7 +69,7 @@
       const g = cur ? cur.parentElement : groups[0];
       if (sel.id === "jwEl") $("jwTitle").textContent = g.label; // 見出しは選択中の分類名
       const top = document.createElement("div"), sub = document.createElement("div");
-      top.className = sub.className = "segrow";
+      top.className = "segrow cat"; sub.className = "segrow item"; // 分類（親）と項目（子）で見た目を変える
       // 分類名は「波浪（実況・約2日先まで）」のような長い表記から括弧の前だけを使う
       groups.forEach((gr) => btn(top, gr.label.replace(/（.*$/, ""), gr === g, () => pick(gr.querySelector("option").value)));
       [...g.querySelectorAll("option")].forEach((o) => btn(sub, o.textContent, o === cur, () => pick(o.value)));
