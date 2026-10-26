@@ -43,6 +43,40 @@
   let tab = "chart", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
   let sheetSize = store.get("kaiyo_sheet") || "s"; // スマホ用メニューの高さ（地図を広く見るため既定は小）
   const SHEET_VH = { s: 26, m: 36, l: 50 };
+  // スマホ用: プルダウンを選択ボタンに置き換える（元の select は残し、ボタンから値を変えて change を発火する）。
+  // optgroup のある select は「分類ボタン＋項目ボタン」の2段にする
+  const segs = [];
+  function makeSeg(sel) {
+    const box = document.createElement("div");
+    box.className = "seg";
+    sel.classList.add("segd");
+    sel.after(box);
+    const pick = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); render(); };
+    const btn = (parent, text, on, fn) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = text; b.classList.toggle("on", on); b.onclick = fn;
+      parent.appendChild(b);
+    };
+    function render() {
+      box.textContent = "";
+      const groups = [...sel.querySelectorAll("optgroup")];
+      const cur = sel.options[sel.selectedIndex];
+      if (!groups.length) {
+        [...sel.options].forEach((o) => btn(box, o.textContent, o === cur, () => pick(o.value)));
+        return;
+      }
+      const g = cur ? cur.parentElement : groups[0];
+      const top = document.createElement("div"), sub = document.createElement("div");
+      top.className = sub.className = "segrow";
+      // 分類名は「波浪（実況・約2日先まで）」のような長い表記から括弧の前だけを使う
+      groups.forEach((gr) => btn(top, gr.label.replace(/（.*$/, ""), gr === g, () => pick(gr.querySelector("option").value)));
+      [...g.querySelectorAll("option")].forEach((o) => btn(sub, o.textContent, o === cur, () => pick(o.value)));
+      box.append(top, sub);
+    }
+    segs.push(render);
+    render();
+  }
+  ["jwEl", "speed", "ghostBack", "basemap", "layoutMode", "sheetSize", "timeStyle"].forEach((id) => makeSeg($(id)));
   function applyLayout() {
     const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
     document.body.classList.toggle("mobile", mobile);
@@ -52,6 +86,7 @@
     $("timeBox").classList.toggle("compact", ts === "compact");
     $("layoutMode").value = layout; $("timeStyle").value = ts; $("sheetSize").value = sheetSize;
     document.documentElement.style.setProperty("--sheet-max", `${SHEET_VH[sheetSize]}vh`);
+    segs.forEach((r) => r()); // 値がコードで変わった場合もボタンの選択表示を合わせる
     $("layoutBtn").textContent = mobile ? "パソコン用表示" : "スマホ用表示";
     document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", sheetOpen && b.dataset.t === tab));
     // 下のメニューの高さ分だけ地図の出典表示を持ち上げる

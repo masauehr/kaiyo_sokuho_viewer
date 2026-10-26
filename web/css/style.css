@@ -91,5 +91,12 @@ label.chk { display:flex; align-items:center; gap:6px; white-space:nowrap; curso
 /* スマホ: タブ名と同じ見出しは省いて表示領域を確保 */
 body.mobile[data-tab="chart"] section[data-tab="chart"] > h2,
 body.mobile[data-tab="current"] section[data-tab="current"] > h2 { display:none; }
+/* 選択ボタン（スマホ用でプルダウンの代わりに使う）。パソコン用では出さない */
+.seg { display:none; }
+body.mobile select.segd { display:none; }
+body.mobile .seg { display:flex; flex-wrap:wrap; gap:4px; flex:1; min-width:0; }
+body.mobile .segrow { display:flex; flex-wrap:wrap; gap:4px; flex:1 1 100%; }
+body.mobile .seg button { flex:1 1 auto; min-height:38px; padding:4px 10px; font-size:15px; }
+body.mobile .seg button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 .row button { flex:none; white-space:nowrap; }
 .row input[type=range] { flex:1; min-width:60px; width:auto; }
