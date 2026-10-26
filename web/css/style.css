@@ -93,6 +93,11 @@ body.mobile[data-tab="chart"] section[data-tab="chart"] > h2,
 body.mobile[data-tab="current"] section[data-tab="current"] > h2 { display:none; }
 /* 選択ボタン（スマホ用でプルダウンの代わりに使う）。パソコン用では出さない */
 .seg { display:none; }
+select.segd.all { display:none; }
+.seg.all { display:flex; flex-wrap:wrap; gap:4px; flex:1; min-width:0; }
+.seg.all .segrow { display:flex; flex-wrap:wrap; gap:4px; flex:1 1 100%; }
+.seg.all button { flex:1 1 auto; white-space:normal; padding:4px 8px; }
+.seg.all button.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 body.mobile select.segd { display:none; }
 body.mobile .seg { display:flex; flex-wrap:wrap; gap:4px; flex:1; min-width:0; }
 body.mobile .segrow { display:flex; flex-wrap:wrap; gap:4px; flex:1 1 100%; }

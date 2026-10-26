@@ -46,10 +46,11 @@
   // スマホ用: プルダウンを選択ボタンに置き換える（元の select は残し、ボタンから値を変えて change を発火する）。
   // optgroup のある select は「分類ボタン＋項目ボタン」の2段にする
   const segs = [];
-  function makeSeg(sel) {
+  function makeSeg(sel, always) {
     const box = document.createElement("div");
     box.className = "seg";
     sel.classList.add("segd");
+    if (always) { sel.classList.add("all"); box.classList.add("all"); } // パソコン用でもボタンで選べる
     sel.after(box);
     const pick = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); render(); };
     const btn = (parent, text, on, fn) => {
@@ -66,6 +67,7 @@
         return;
       }
       const g = cur ? cur.parentElement : groups[0];
+      if (sel.id === "jwEl") $("jwTitle").textContent = g.label; // 見出しは選択中の分類名
       const top = document.createElement("div"), sub = document.createElement("div");
       top.className = sub.className = "segrow";
       // 分類名は「波浪（実況・約2日先まで）」のような長い表記から括弧の前だけを使う
@@ -76,7 +78,8 @@
     segs.push(render);
     render();
   }
-  ["jwEl", "speed", "ghostBack", "basemap", "layoutMode", "sheetSize", "timeStyle"].forEach((id) => makeSeg($(id)));
+  makeSeg($("jwEl"), true);
+  ["speed", "ghostBack", "basemap", "layoutMode", "sheetSize", "timeStyle"].forEach((id) => makeSeg($(id)));
   function applyLayout() {
     const mobile = layout === "mobile", ts = timeStyle || (mobile ? "compact" : "large");
     document.body.classList.toggle("mobile", mobile);
@@ -319,7 +322,15 @@
     $("ghostOn").onchange = $("ghostBack").onchange = () => show(idx);
     $("basemap").onchange = (e) => setBasemap(e.target.value);
     $("imgOn").onchange = (e) => { $("imgBox").hidden = !e.target.checked; if (e.target.checked) setImage(); };
+    // 海保の海流は気象庁の「表層水温・海流・海氷」の図にだけ重ねる
+    const inCurGroup = () => $("jwEl").options[$("jwEl").selectedIndex].parentElement.dataset.cur === "1";
+    $("jwEl").addEventListener("change", () => { // 別の分類の図に替えたら海保の海流は外す
+      if ($("currentOn").checked && !inCurGroup()) { $("currentOn").checked = false; $("currentOn").onchange({ target: $("currentOn") }); }
+    });
     $("currentOn").onchange = (e) => {
+      if (e.target.checked && !inCurGroup()) { // 重ね先が無いので、海流の図に切り替える
+        $("jwEl").value = "cur"; $("jwEl").dispatchEvent(new Event("change")); applyLayout();
+      }
       $("currentBody").hidden = !e.target.checked;
       if (!e.target.checked) stop();
       show(idx);
