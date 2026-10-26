@@ -14,13 +14,15 @@
       <p class="sub">出典：気象庁（波浪図・水温・海流図）／海上保安庁 海洋情報部（海流）ほか</p>
     </div>
     <nav id="tabs" aria-label="メニュー">
-      <button data-t="chart">気象庁の図</button>
-      <button data-t="current">海流</button>
+      <button data-t="wave">波浪</button>
+      <button data-t="sst">海面水温</button>
+      <button data-t="cur">海流</button>
+      <button data-t="other">その他</button>
       <button data-t="map">地図・設定</button>
     </nav>
     <div id="panelBody">
 
-    <section data-tab="chart">
+    <section data-tab="wave sst cur other">
       <h2 id="jwTitle">波浪</h2>
       <div class="row"><label class="chk"><input type="checkbox" id="jwOn" checked> 表示</label></div>
       <div class="row">
@@ -30,8 +32,6 @@
             <option value="wind">波と風</option>
             <option value="windsea">風浪と風</option>
             <option value="swell">うねりの高さと周期</option>
-            <option value="roughwv">多方向から波が来る海域</option>
-            <option value="curwv">流れで波が険しくなる海域</option>
           </optgroup>
           <optgroup label="海面水温">
             <option value="sst">海面水温（実況）</option>
@@ -46,6 +46,10 @@
             <option value="t100f">100m深水温（予想）</option>
             <option value="cur">50m深海流</option>
             <option value="curf">50m深海流（予想）</option>
+          </optgroup>
+          <optgroup label="その他">
+            <option value="roughwv">多方向から波が来る海域</option>
+            <option value="curwv">流れで波が険しくなる海域</option>
           </optgroup>
         </select>
       </div>
@@ -64,13 +68,13 @@
       <p class="note">気象庁の「波浪実況・予想図」「海面水温実況図・予想図」「表層水温・海流実況図・予想図」の画像です。波浪は6時間ごと（過去の解析〜約2日先）、水温・海流は日ごと（実況は直近5日、予想は約30日先）。「表層水温・海流・海氷」の海氷の図は、気象庁が12月1日の再開まで発表を休止しているため未掲載です。画像のため、地図クリックでの数値表示はできません。図は自動作成で、気象庁の警報・注意報や天気予報とは内容が異なる場合があります。出典：気象庁</p>
     </section>
 
-    <section data-tab="current">
+    <section data-tab="cur">
       <h2>海上保安庁の海流</h2>
       <label class="row"><input type="checkbox" id="currentOn"> 海保の海流を重ねる</label>
       <p class="note">気象庁の「表層水温・海流・海氷」の図の上に、海上保安庁の流路（黒潮など）を重ねて表示します。波浪・海面水温の図には重ねられません（オンにすると50m深海流の図に切り替わります）。オンにすると下の操作（号の選択・再生・比較・流軸の通過緯度）が使えます。</p>
     </section>
 
-    <div id="currentBody" data-tab="current" hidden>
+    <div id="currentBody" data-tab="cur" hidden>
     <section>
       <h2>号の選択</h2>
       <div class="row">

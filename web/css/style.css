@@ -62,14 +62,16 @@ body.mobile #panel { position:fixed; left:0; right:0; bottom:0; width:auto; max-
   padding:0 12px env(safe-area-inset-bottom); border:1px solid var(--line); border-radius:14px 14px 0 0; box-shadow:0 -2px 12px #0004; }
 body.mobile #head { display:none; }
 body.mobile #tabs { display:flex; gap:4px; flex:none; padding:6px 0; }
-body.mobile #tabs button { flex:1; padding:4px 2px; font-size:13px; font-weight:600; min-height:36px; }
+body.mobile #tabs button { flex:1; padding:4px 1px; font-size:12px; font-weight:600; min-height:36px; }
 body.mobile #tabs button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
 body.mobile #panelBody { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:10px; }
 body.mobile.sheet-closed #panelBody { display:none; }
 body.mobile #panelBody [data-tab] { display:none; }
-body.mobile[data-tab="chart"] #panelBody [data-tab="chart"],
-body.mobile[data-tab="current"] #panelBody [data-tab="current"],
-body.mobile[data-tab="map"] #panelBody [data-tab="map"] { display:block; }
+body.mobile[data-tab="wave"] #panelBody [data-tab~="wave"],
+body.mobile[data-tab="sst"] #panelBody [data-tab~="sst"],
+body.mobile[data-tab="cur"] #panelBody [data-tab~="cur"],
+body.mobile[data-tab="other"] #panelBody [data-tab~="other"],
+body.mobile[data-tab="map"] #panelBody [data-tab~="map"] { display:block; }
 body.mobile #panelBody [hidden] { display:none !important; }
 body.mobile button, body.mobile select { min-height:38px; font-size:16px; }
 body.mobile .row { margin:4px 0; gap:6px; }
@@ -89,8 +91,10 @@ body.mobile.compact-time #toast { top:36px; }
 body.mobile #imgBox { top:36px; right:8px; bottom:auto; width:58vw; }
 label.chk { display:flex; align-items:center; gap:6px; white-space:nowrap; cursor:pointer; }
 /* スマホ: タブ名と同じ見出しは省いて表示領域を確保 */
-body.mobile[data-tab="chart"] section[data-tab="chart"] > h2,
-body.mobile[data-tab="current"] section[data-tab="current"] > h2 { display:none; }
+body.mobile section[data-tab] > h2:not(.keep) { display:none; }
+body.mobile[data-tab="map"] section[data-tab~="map"] > h2 { display:block; }
+/* 分類はタブで選ぶので、スマホ用では分類ボタンの段を省く */
+body.mobile .seg.all > .segrow:first-child { display:none; }
 /* 選択ボタン（スマホ用でプルダウンの代わりに使う）。パソコン用では出さない */
 .seg { display:none; }
 select.segd.all { display:none; }

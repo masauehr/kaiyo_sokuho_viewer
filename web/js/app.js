@@ -40,7 +40,7 @@
   const looksLikePhone = () => matchMedia("(max-width: 720px)").matches || matchMedia("(pointer: coarse) and (max-width: 900px)").matches;
   let layout = store.get("kaiyo_layout") || (looksLikePhone() ? "mobile" : "pc");
   let timeStyle = store.get("kaiyo_timestyle"); // 未選択ならモードに合わせる（スマホ=小、パソコン=大）
-  let tab = "chart", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
+  let tab = "wave", sheetOpen = true; // 起動時は常に既定の波浪図から（前回のタブは引き継がない）
   let sheetSize = store.get("kaiyo_sheet") || "s"; // スマホ用メニューの高さ（地図を広く見るため既定は小）
   const SHEET_VH = { s: 26, m: 36, l: 50 };
   // スマホ用: プルダウンを選択ボタンに置き換える（元の select は残し、ボタンから値を変えて change を発火する）。
@@ -96,17 +96,27 @@
     document.documentElement.style.setProperty("--sheet-h", mobile ? `${$("panel").offsetHeight}px` : "0px");
     setTimeout(() => map.invalidateSize(), 0);
   }
-  const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); applyLayout(); };
+  const setLayout = (m) => { layout = m; store.set("kaiyo_layout", m); if (m === "mobile" && tab !== "map") tab = groupTab(); applyLayout(); };
   $("layoutMode").onchange = (e) => setLayout(e.target.value);
   $("layoutBtn").onclick = () => setLayout(layout === "mobile" ? "pc" : "mobile");
   $("sheetSize").onchange = (e) => { sheetSize = e.target.value; store.set("kaiyo_sheet", sheetSize); applyLayout(); };
   $("timeStyle").onchange = (e) => { timeStyle = e.target.value; store.set("kaiyo_timestyle", timeStyle); applyLayout(); };
+  // スマホ用のタブ（波浪／海面水温／海流／その他）と、気象庁の図の分類（optgroup）の対応。タブを開くとその分類の図を表示する
+  const TAB_EL = { wave: "wavh", sst: "sst", cur: "cur", other: "roughwv" };
+  const TAB_ORDER = ["wave", "sst", "cur", "other"];
+  const groupTab = () => TAB_ORDER[[...$("jwEl").querySelectorAll("optgroup")].indexOf($("jwEl").options[$("jwEl").selectedIndex].parentElement)];
+  function showTabChart(t) {
+    if (!TAB_EL[t] || groupTab() === t) return;
+    $("jwEl").value = TAB_EL[t]; $("jwEl").dispatchEvent(new Event("change")); // 別の分類へ替えると海保の海流は自動でオフになる
+    if (!$("jwOn").checked) { $("jwOn").checked = true; $("jwOn").dispatchEvent(new Event("change")); }
+  }
   document.querySelectorAll("#tabs button").forEach((b) => {
     b.onclick = () => { // 開いているタブをもう一度押すとメニューを閉じて地図を広く見られる
       const prev = tab, next = b.dataset.t;
       if (prev === next && sheetOpen) sheetOpen = false;
       else {
         tab = next; sheetOpen = true;
+        showTabChart(next);
         $("panelBody").scrollTop = 0; // 前のタブのスクロール位置を引き継がない（内容が隠れて同じに見えるのを防ぐ）
       }
       applyLayout();
